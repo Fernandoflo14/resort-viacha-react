@@ -1,0 +1,15 @@
+FROM node:24-bookworm-slim AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --omit=dev --no-audit --no-fund
+
+FROM node:24-bookworm-slim AS backend
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules/bcryptjs ./node_modules/bcryptjs
+COPY --from=deps /app/node_modules/swagger-ui-dist/swagger-ui.css /app/node_modules/swagger-ui-dist/swagger-ui-bundle.js ./node_modules/swagger-ui-dist/
+COPY package.json ./
+COPY backend ./backend
+RUN mkdir -p /data && chown node:node /data && chmod 700 /data
+USER node
+EXPOSE 3001 3002
