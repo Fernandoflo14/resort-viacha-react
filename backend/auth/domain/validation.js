@@ -1,18 +1,18 @@
-import { HttpError } from '../shared/http.js';
+import { ApplicationError } from '../../shared/application-error.js';
 
 const avatars = new Set(['logo.png', 'piscina.jpg', 'bar.jpg', 'viaje1.jpg', 'viaje2.jpg', 'demo1.jpg'].map(name => '/assets/' + name));
 
 export function credentials(data, register = false) {
   const email = typeof data.email === 'string' ? data.email.trim().toLowerCase() : '';
   if (email.length > 254 || !/^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(email)) {
-    throw new HttpError(400, 'Escribe un correo electrónico válido.');
+    throw new ApplicationError(400, 'Escribe un correo electrónico válido.');
   }
   const { password } = data;
   if (typeof password !== 'string' || !password || password.length > 1024) {
-    throw new HttpError(400, 'Escribe una contraseña válida.');
+    throw new ApplicationError(400, 'Escribe una contraseña válida.');
   }
   if (register && (password.length < 8 || password.length > 128)) {
-    throw new HttpError(400, 'La contraseña debe tener entre 8 y 128 caracteres.');
+    throw new ApplicationError(400, 'La contraseña debe tener entre 8 y 128 caracteres.');
   }
   return { email, password };
 }
@@ -47,14 +47,14 @@ export function profile(data) {
   for (const [name, label, limit] of [['name', 'El nombre', 60], ['description', 'La descripción', 300]]) {
     if (!Object.hasOwn(data, name)) continue;
     if (typeof data[name] !== 'string' || data[name].trim().length > limit) {
-      throw new HttpError(400, `${label} debe tener hasta ${limit} caracteres.`);
+      throw new ApplicationError(400, `${label} debe tener hasta ${limit} caracteres.`);
     }
     fields[name] = data[name].trim();
   }
   if (Object.hasOwn(data, 'profileImage')) {
-    if (!image(data.profileImage)) throw new HttpError(400, 'La imagen debe ser PNG, JPG o WebP y pesar hasta 290 KB.');
+    if (!image(data.profileImage)) throw new ApplicationError(400, 'La imagen debe ser PNG, JPG o WebP y pesar hasta 290 KB.');
     fields.profileImage = data.profileImage;
   }
-  if (!Object.keys(fields).length) throw new HttpError(400, 'Envía al menos un campo del perfil.');
+  if (!Object.keys(fields).length) throw new ApplicationError(400, 'Envía al menos un campo del perfil.');
   return fields;
 }

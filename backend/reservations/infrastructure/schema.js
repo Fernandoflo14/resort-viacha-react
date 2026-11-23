@@ -2,7 +2,7 @@ export const reservationsSchema = `
   CREATE TABLE IF NOT EXISTS reservations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL CHECK (user_id > 0),
-    room TEXT NOT NULL CHECK (room IN ('estandar', 'deluxe', 'presidencial')),
+    room TEXT NOT NULL,
     check_in TEXT NOT NULL,
     check_out TEXT NOT NULL CHECK (check_out > check_in),
     guests INTEGER NOT NULL CHECK (guests BETWEEN 1 AND 6),

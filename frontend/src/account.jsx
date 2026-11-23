@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { auth, booking, request } from './api.js';
-import { dateLabel, price } from './dates.js';
+import { dateLabel, price, today } from './dates.js';
 
 export function AuthForm({ onAuth }) {
   const [mode, setMode] = useState('login');
@@ -85,7 +85,7 @@ function Profile({ session }) {
   return <section className="panel">
     <h2>Mi perfil</h2>
     <form className="form-stack" onSubmit={save}>
-      <div className="profile-avatar"><img src={draft.profileImage} alt="Foto de perfil" /><div><strong>{user.name || 'Huésped'}</strong><p>{user.email}</p></div></div>
+      <div className="profile-avatar"><img src={draft.profileImage} alt="Foto de perfil" /><div><strong>{user.name || 'Huésped'}</strong><p>{user.email}</p><small className="muted">Cuenta {user.id}</small></div></div>
       <div className="avatar-options" aria-label="Imágenes del resort">
         {avatars.map(([file, label]) => <button key={file} type="button" aria-label={label} aria-pressed={draft.profileImage === '/assets/' + file}
           disabled={saving} onClick={() => update('profileImage', '/assets/' + file)}><img src={'/assets/' + file} alt="" /></button>)}
@@ -99,7 +99,7 @@ function Profile({ session }) {
   </section>;
 }
 
-function ReservationList({ session }) {
+function ReservationList({ session, onChange }) {
   const { token, expire } = session;
   const [rows, setRows] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -125,6 +125,7 @@ function ReservationList({ session }) {
       await request(booking + '/reservations/' + id, { method: 'DELETE', token });
       setRows(current => current.map(row => row.id === id ? { ...row, status: 'cancelada' } : row));
       setNotice({ text: 'La reserva se canceló.' });
+      onChange();
       setConfirm(null);
     } catch (error) {
       expire(error);
@@ -144,7 +145,7 @@ function ReservationList({ session }) {
       <h3>{row.roomName}</h3>
       <p>{dateLabel(row.checkIn)} – {dateLabel(row.checkOut)}</p>
       <p>{row.guests} {row.guests === 1 ? 'huésped' : 'huéspedes'} · {price(row.total)} · {row.paymentMethod.toUpperCase()}</p>
-      {row.status === 'confirmada' && (confirm === row.id ?
+      {row.status === 'confirmada' && row.checkIn >= today() && (confirm === row.id ?
         <div className="actions"><button type="button" className="button danger" disabled={pending !== null} onClick={() => cancel(row.id)}>{pending === row.id ? 'Cancelando…' : 'Sí, cancelar'}</button>
           <button type="button" className="button secondary" disabled={pending !== null} onClick={() => setConfirm(null)}>Conservar reserva</button></div> :
         <button type="button" className="text-button" disabled={pending !== null} onClick={() => setConfirm(row.id)}>Cancelar reserva</button>)}
@@ -152,14 +153,21 @@ function ReservationList({ session }) {
   </section>;
 }
 
-export function Account({ session }) {
+export function Account({ session, extras: Extras }) {
   const { user, token, checking, updateSession, sessionError, restoreSession } = session;
+  const [version, refresh] = useState(0);
   return <section className="wrap page">
     <div className="page-heading with-action"><div><p className="overline">PARADISE RESORT</p><h1>Mi cuenta</h1>
       <p>Gestiona tu perfil y tus próximas estadías.</p></div>
-      {user && <button type="button" className="button secondary" onClick={() => updateSession(null)}>Cerrar sesión</button>}</div>
+      {user && <div className="actions">
+        {['admin', 'staff'].includes(user.role) && <a className="button" href="#/operaciones">{user.role === 'admin' ? 'Administración' : 'Recepción'}</a>}
+        <button type="button" className="button secondary" onClick={() => updateSession(null)}>Cerrar sesión</button>
+      </div>}</div>
     {sessionError && <p role="alert" className="notice error">{sessionError}</p>}
-    {checking ? <p role="status">Verificando tu sesión…</p> : user ? <div className="account-grid" key={user.id}><Profile session={session} /><ReservationList session={session} /></div> :
+    {checking ? <p role="status">Verificando tu sesión…</p> : user ? <div className="account-grid" key={user.id}>
+      <Profile session={session} /><ReservationList session={session} onChange={() => refresh(current => current + 1)} />
+      {Extras && <Extras session={session} roomVersion={version} />}
+    </div> :
       token ? <button type="button" className="button" onClick={() => restoreSession()}>Reintentar</button> : <AuthForm onAuth={updateSession} />}
   </section>;
 }

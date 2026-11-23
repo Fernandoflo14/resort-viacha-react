@@ -2,8 +2,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { openDatabase, transaction } from './shared/database.js';
-import { authSchema } from './auth/schema.js';
-import { reservationsSchema } from './reservations/schema.js';
+import { authSchema } from './auth/infrastructure/schema.js';
+import { reservationsSchema } from './reservations/infrastructure/schema.js';
 
 export function migrate(sourcePath, authPath, bookingPath) {
   const [sourceFile, authFile, bookingFile] = [sourcePath, authPath, bookingPath].map((file) => resolve(file));

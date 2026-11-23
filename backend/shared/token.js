@@ -11,14 +11,14 @@ export function tokens(secret) {
   }
   const sign = (data) => createHmac('sha256', secret).update(data).digest();
   return {
-    issue(id) {
+    issue(id, role = 'guest') {
       const iat = now();
       const input = header + '.' + encode({
-        iss: 'resort-viacha-auth', aud: 'resort-viacha', sub: String(id), iat, exp: iat + 7200,
+        iss: 'resort-viacha-auth', aud: 'resort-viacha', sub: String(id), iat, exp: iat + 7200, role,
       });
       return input + '.' + sign(input).toString('base64url');
     },
-    owner(req) {
+    identity(req) {
       const match = /^Bearer ([\w-]+)\.([\w-]+)\.([\w-]+)$/i.exec(req.headers.authorization || '');
       const denied = new HttpError(401, 'Inicia sesión o vuelve a ingresar si tu sesión expiró.');
       if (!match || match[1] !== header || match[2].length > 1024 || match[3].length !== 43) throw denied;
@@ -34,7 +34,11 @@ export function tokens(secret) {
       if (!Number.isSafeInteger(id) || id < 1 || claims.sub !== String(id) ||
           claims.iss !== 'resort-viacha-auth' || claims.aud !== 'resort-viacha' ||
           !Number.isSafeInteger(claims.exp) || claims.exp <= now()) throw denied;
-      return id;
+      const role = ['admin', 'staff'].includes(claims.role) ? claims.role : 'guest';
+      return { id, role };
+    },
+    owner(req) {
+      return this.identity(req).id;
     },
   };
 }

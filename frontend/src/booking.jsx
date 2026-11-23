@@ -6,6 +6,8 @@ import { AuthForm } from './account.jsx';
 const roomCopy = {
   estandar: 'Una suite acogedora para una escapada al altiplano.',
   deluxe: 'Más espacio para descansar después de explorar Viacha.',
+  familiar: 'Una opción para compartir la estadía en familia.',
+  terraza: 'Una suite pensada para disfrutar del aire libre.',
   presidencial: 'La suite más amplia para una ocasión especial.',
 };
 
@@ -78,9 +80,9 @@ function BookingForm({ room, start, session }) {
         <label>Huéspedes<select name="guests" value={draft.guests} onChange={change}>
           {[1, 2, 3, 4, 5, 6].map(count => <option key={count} value={count}>{count}</option>)}</select></label>
         <label>Forma de pago<select name="paymentMethod" value={draft.paymentMethod} onChange={change}>
-          <option value="qr">QR</option><option value="tarjeta">Tarjeta</option><option value="efectivo">Efectivo</option></select></label>
+          <option value="qr">QR en recepción</option><option value="tarjeta">Tarjeta en recepción</option><option value="efectivo">Efectivo en recepción</option></select></label>
       </fieldset>
-      <p className="muted">Pago simulado. La reserva se registra sin efectuar un cobro.</p>
+      <p className="muted">Pagas en recepción. El personal registrará el cobro con tu comprobante.</p>
       {nights > 0 && <div className="total"><span>{nights} {nights === 1 ? 'noche' : 'noches'} × {price(room.price)}</span><strong>{price(nights * room.price)}</strong></div>}
       {availability.error ? <p className="notice error" role="alert">{availability.error} <button type="button" className="text-button" onClick={() => reload(revision + 1)}>Reintentar</button></p> :
         !availability.data ? <p role="status">Buscando disponibilidad…</p> :
@@ -122,7 +124,7 @@ export function Rooms({ session, start }) {
     {catalog.error ? <p className="notice error" role="alert">{catalog.error} <button className="text-button" onClick={() => reload(revision + 1)}>Reintentar</button></p> :
       !catalog.data ? <p role="status">Cargando habitaciones…</p> : <div className="cards">
         {catalog.data.map(room => <article className={'card room-card' + (selection === room.id ? ' selected' : '')} key={room.id}>
-          <img src={room.image} alt={room.name} />
+          <img src={room.image} alt={['familiar', 'terraza'].includes(room.id) ? 'Imagen referencial de alojamiento' : room.name} />
           <div className="card-body"><h2>{room.name}</h2><p>{roomCopy[room.id]}</p>
             <div className="room-price"><strong>{price(room.price)}</strong><span> / noche</span></div>
             <button type="button" className="button secondary" onClick={() => select(room.id)} aria-pressed={selection === room.id}>Elegir habitación <span aria-hidden="true">↗</span></button>

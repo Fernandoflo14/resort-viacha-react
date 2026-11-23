@@ -1,8 +1,10 @@
-import { HttpError } from '../shared/http.js';
+import { ApplicationError } from '../../shared/application-error.js';
 
 export const rooms = [
   { id: 'estandar', name: 'Suite Estándar', price: 120, stock: 3, image: '/assets/cuarto1.jpg' },
   { id: 'deluxe', name: 'Suite Deluxe', price: 250, stock: 3, image: '/assets/cuarto2.jpg' },
+  { id: 'familiar', name: 'Suite Familiar', price: 320, stock: 2, image: '/assets/cuarto2.jpg' },
+  { id: 'terraza', name: 'Suite Terraza', price: 380, stock: 2, image: '/assets/cuarto3.jpg' },
   { id: 'presidencial', name: 'Suite Presidencial', price: 450, stock: 2, image: '/assets/cuarto3.jpg' },
 ];
 export const paymentMethods = ['qr', 'tarjeta', 'efectivo'];
@@ -35,21 +37,21 @@ export function* stayDates(start, end) {
 export function booking(data, requestKey) {
   const { room, checkIn, checkOut, guests, paymentMethod } = data;
   const category = roomFor(room);
-  if (!category) throw new HttpError(400, 'Selecciona una habitación válida.');
+  if (!category) throw new ApplicationError(400, 'Selecciona una habitación válida.');
   if (!Number.isFinite(time(checkIn)) || !Number.isFinite(time(checkOut))) {
-    throw new HttpError(400, 'Elige fechas válidas.');
+    throw new ApplicationError(400, 'Elige fechas válidas.');
   }
   const nights = (time(checkOut) - time(checkIn)) / day;
-  if (nights < 1 || nights > maxNights) throw new HttpError(400, 'La estadía debe ser de 1 a 30 noches.');
-  if (!Number.isInteger(guests) || guests < 1 || guests > maxGuests) throw new HttpError(400, 'Indica entre 1 y 6 huéspedes.');
-  if (!paymentMethods.includes(paymentMethod)) throw new HttpError(400, 'Selecciona un método de pago.');
-  if (requestKey !== undefined && !/^[\w-]{8,100}$/.test(requestKey)) throw new HttpError(400, 'La clave de la solicitud no es válida.');
+  if (nights < 1 || nights > maxNights) throw new ApplicationError(400, 'La estadía debe ser de 1 a 30 noches.');
+  if (!Number.isInteger(guests) || guests < 1 || guests > maxGuests) throw new ApplicationError(400, 'Indica entre 1 y 6 huéspedes.');
+  if (!paymentMethods.includes(paymentMethod)) throw new ApplicationError(400, 'Selecciona un método de pago.');
+  if (requestKey !== undefined && !/^[\w-]{8,100}$/.test(requestKey)) throw new ApplicationError(400, 'La clave de la solicitud no es válida.');
   return { room, checkIn, checkOut, guests, paymentMethod, nights, total: nights * category.price, stock: category.stock, requestKey };
 }
 
 export function formatReservation(row) {
   return {
-    id: row.id, code: `PR-${String(row.id).padStart(5, '0')}`, room: row.room, roomName: roomFor(row.room).name,
+    id: row.id, code: `PR-${String(row.id).padStart(5, '0')}`, room: row.room, roomName: roomFor(row.room)?.name ?? row.room,
     checkIn: row.check_in, checkOut: row.check_out, guests: row.guests, nights: row.nights, total: row.total,
     paymentMethod: row.payment_method, status: row.status, createdAt: row.created_at,
   };

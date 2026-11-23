@@ -4,13 +4,15 @@ import { auth, request } from './api.js';
 import { Account } from './account.jsx';
 import { Rooms, Calendar } from './booking.jsx';
 import { Guide } from './guide.jsx';
+import { Experiences, MyExperiences } from './experiences.jsx';
+import { Operations } from './operations.jsx';
 import './styles.css';
 
 const pages = { '/index.html': '', '/precios.html': 'habitaciones', '/calendario.html': 'calendario',
   '/guia_turistica.html': 'guia', '/usuario.html': 'cuenta', '/login.html': 'cuenta' };
 const readRoute = () => location.hash.startsWith('#/') ? location.hash.slice(2) : pages[location.pathname] || '';
 const sessionKey = 'resort-viacha-session';
-const navigation = [['', 'Inicio'], ['habitaciones', 'Habitaciones'], ['guia', 'Guía local'], ['calendario', 'Calendario']];
+const navigation = [['', 'Inicio'], ['habitaciones', 'Alojamiento'], ['experiencias', 'Experiencias'], ['guia', 'Guía local'], ['calendario', 'Calendario']];
 const siteName = 'Paradise Resort · Viacha';
 
 function Brand() {
@@ -29,24 +31,21 @@ function Home() {
         <p>Descansa entre paisajes abiertos. Disfruta la piscina, el bar y una suite a tu medida en Paradise Resort.</p>
         <div className="actions">
           <a className="button button-light" href="#/habitaciones">Ver habitaciones <span aria-hidden="true">↗</span></a>
-          <a className="button button-overlay" href="#/guia">Explorar la zona</a>
+          <a className="button button-overlay" href="#/experiencias">Ver experiencias</a>
         </div>
       </div>
     </section>
-    <div className="feature-strip"><div className="wrap feature-inner">
-      <span>Suites para descansar</span><span>Piscina Infinity</span><span>Bar y coctelería</span><span>Excursiones en La Paz</span>
-    </div></div>
     <section className="wrap home-section">
       <div className="section-heading">
-        <div><p className="overline">EL RESORT</p><h2>Tiempo para disfrutar.</h2></div>
-        <p>Empieza el día en la piscina, termina con un cóctel y vuelve a tu suite a descansar.</p>
+        <div><p className="overline">EL RESORT</p><h2>Elige cómo pasar el día.</h2></div>
+        <p>Reserva una suite para quedarte o elige una actividad para venir por el día.</p>
       </div>
       <div className="cards">
-        {[['piscina.jpg', 'Piscina Infinity', 'Un lugar para relajarte al aire libre.'],
-          ['bar.jpg', 'Bar y coctelería', 'Una copa y buena compañía al final del día.'],
-          ['cuarto2.jpg', 'Suites', 'Tres categorías para elegir tu estadía.']].map(([image, title, description]) =>
-          <article className="card" key={title}><img src={'/assets/' + image} alt={title} loading="lazy" />
-            <div className="card-body"><h3>{title}</h3><p>{description}</p></div></article>)}
+        {[['cuarto2.jpg', 'Alojamiento', 'Elige una suite y consulta tus fechas.', 'habitaciones', 'Ver suites'],
+          ['piscina.jpg', 'Experiencias', 'Piscina, gastronomía y salidas en grupo.', 'experiencias', 'Ver actividades'],
+          ['viaje2.jpg', 'Guía local', 'Consulta rutas y planea tu recorrido por La Paz.', 'guia', 'Explorar rutas']].map(([image, title, description, page, label]) =>
+          <article className="card" key={title}><img src={'/assets/' + image} alt="" loading="lazy" />
+            <div className="card-body"><h3>{title}</h3><p>{description}</p><a className="text-link" href={'#/' + page}>{label} ↗</a></div></article>)}
       </div>
     </section>
     <section className="bottom-call">
@@ -115,7 +114,7 @@ function App() {
   }, [token]);
 
   useEffect(() => {
-    const label = navigation.find(([id]) => page === id)?.[1] || (page === 'cuenta' ? 'Mi cuenta' : '');
+    const label = navigation.find(([id]) => page === id)?.[1] || ({ cuenta: 'Mi cuenta', operaciones: 'Operaciones' }[page] || '');
     document.title = label && page ? label + ' | ' + siteName : siteName;
   }, [page]);
 
@@ -131,12 +130,15 @@ function App() {
         <nav id="navigation" className={menu ? 'nav is-open' : 'nav'} aria-label="Principal">
           {navigation.map(([id, label]) => <a key={id} href={'#/' + id} aria-current={isActive(id)}>{label}</a>)}
         </nav>
-        <a href="#/cuenta" className="account-link" aria-current={isActive('cuenta')}>{user ? 'Mi perfil' : 'Mi cuenta'} <span aria-hidden="true">↗</span></a>
+        <a href="#/cuenta" className="account-link" aria-current={isActive('cuenta')}>Mi cuenta <span aria-hidden="true">↗</span></a>
       </div>
     </header>
-    <main id="contenido" tabIndex={-1}>
+    <main id="contenido" tabIndex={-1} key={page} className="page-enter">
       {page === '' ? <Home /> : page === 'habitaciones' ? <Rooms session={session} start={params.get('entrada')} /> :
-        page === 'calendario' ? <Calendar /> : page === 'guia' ? <Guide /> : page === 'cuenta' ? <Account session={session} /> :
+        page === 'calendario' ? <Calendar /> : page === 'guia' ? <Guide /> :
+          page === 'experiencias' ? <Experiences session={session} /> :
+          page === 'cuenta' ? <Account session={session} extras={MyExperiences} /> :
+          page === 'operaciones' ? <Operations session={session} /> :
           <section className="wrap page"><h1>Página no encontrada</h1><a className="text-link" href="#/">Volver al inicio</a></section>}
     </main>
     <footer className="footer"><div className="wrap footer-row"><Brand /><span>Viacha, La Paz · Bolivia</span>

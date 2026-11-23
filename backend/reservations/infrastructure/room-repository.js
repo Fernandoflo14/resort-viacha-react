@@ -1,5 +1,5 @@
-import { transaction } from '../shared/database.js';
-import { stayDates, today } from './domain.js';
+import { transaction } from '../../shared/database.js';
+import { stayDates, today } from '../domain/rooms.js';
 
 export function reservationRepository(db) {
   const open = db.prepare("SELECT check_in, check_out FROM reservations WHERE room = ? AND status = 'confirmada' AND check_out > ?");
@@ -9,6 +9,7 @@ export function reservationRepository(db) {
   const insert = db.prepare(`INSERT INTO reservations (user_id, room, check_in, check_out, guests, nights, total, payment_method, request_key)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`);
   const cancel = db.prepare("UPDATE reservations SET status = 'cancelada' WHERE id = ? AND user_id = ? RETURNING id");
+  const byId = db.prepare('SELECT check_in, status FROM reservations WHERE id=? AND user_id=?');
 
   function occupancy(rows, start, end) {
     const counts = new Map();
@@ -26,7 +27,14 @@ export function reservationRepository(db) {
       return [...occupancy(open.all(room, first), first)].filter(([, count]) => count >= stock).map(([date]) => date).sort();
     },
     list: (id) => byOwner.all(id),
-    cancel: (id, owner) => Boolean(cancel.get(id, owner)),
+    cancel: (id, owner) => transaction(db, () => {
+      const row = byId.get(id, owner);
+      if (!row) return 'missing';
+      if (row.status === 'cancelada') return 'ok';
+      if (row.check_in < today()) return 'past';
+      cancel.get(id, owner);
+      return 'ok';
+    }),
     create(owner, data) {
       const { room, checkIn, checkOut, guests, nights, total, paymentMethod, stock, requestKey } = data;
       return transaction(db, () => {

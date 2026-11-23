@@ -7,9 +7,9 @@ import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 import { authService } from '../backend/auth/app.js';
 import { reservationsService } from '../backend/reservations/app.js';
-import { today, dateText } from '../backend/reservations/domain.js';
+import { today, dateText } from '../backend/reservations/domain/rooms.js';
 import { migrate } from '../backend/migrate.js';
-import { hashPassword } from '../backend/auth/passwords.js';
+import { hashPassword } from '../backend/auth/infrastructure/passwords.js';
 import { frontendServer } from '../frontend/server.js';
 
 const secret = 'secret-used-only-in-the-test-suite-2026';
@@ -43,8 +43,8 @@ function setup(t) {
   const directory = mkdtempSync(join(tmpdir(), 'resort-viacha-'));
   const paths = { auth: join(directory, 'auth.sqlite'), booking: join(directory, 'booking.sqlite') };
   const services = new Set();
-  function open() {
-    const auth = authService({ path: paths.auth, secret });
+  function open(roles = {}) {
+    const auth = authService({ path: paths.auth, secret, ...roles });
     const booking = reservationsService({ path: paths.booking, secret });
     services.add(auth).add(booking);
     return { auth, booking };
@@ -206,4 +206,106 @@ test('la comprobación pública falla si faltan los servicios de backend', async
   const health = await call(frontend, '/health');
   assert.equal(health.status, 503);
   assert.deepEqual(health.data, { status: 'unavailable' });
+});
+
+test('experiencias, control de cupo, roles, cobro, cancelación y reembolso', async t => {
+  const { open, close } = setup(t);
+  const first = open({ adminIds: '1', staffIds: '2' });
+  const base = '/api/booking';
+  const signIn = email => call(first.auth, '/api/auth/login', { method: 'POST', data: makeCredentials(email) });
+  const registerAs = async email => {
+    const result = await call(first.auth, '/api/auth/register', {
+      method: 'POST', data: { ...makeCredentials(email), role: 'admin' },
+    });
+    assert.equal(result.data.user.role, 'guest');
+    return result.data;
+  };
+  await registerAs('admin@example.test');
+  await registerAs('staff@example.test');
+  const guest = await registerAs('guest@example.test');
+  const admin = (await signIn('admin@example.test')).data;
+  const staff = (await signIn('staff@example.test')).data;
+  assert.equal(admin.user.role, 'admin');
+  assert.equal(staff.user.role, 'staff');
+  assert.equal((await call(first.auth, '/api/auth/profile', { token: admin.token })).data.user.role, 'admin');
+
+  const history = base + '/operations/history?from=' + date(0) + '&to=' + date(10);
+  const pdf = history.replace('history?', 'history.pdf?');
+  assert.equal((await call(first.booking, history, { token: guest.token })).status, 403);
+  assert.equal((await call(first.booking, pdf, { token: staff.token })).status, 403);
+  assert.equal((await call(first.booking, base + '/operations/history')).status, 401);
+  assert.equal((await call(first.booking, base + '/operations/history', { token: admin.token })).status, 200);
+  const available = base + '/experiences/cocteleria/slots?day=' + date(3);
+  assert.equal((await call(first.booking, available)).data.slots[0].remaining, 10);
+  const input = { service: 'cocteleria', day: date(3), slot: '17:00', guests: 6, method: 'qr', amount: 1 };
+  const create = (key, data = input) => call(first.booking, base + '/experience-bookings', { method: 'POST', token: guest.token, data, key });
+  const attempts = await Promise.all([create('attempt-1'), create('attempt-2')]);
+  assert.deepEqual(attempts.map(result => result.status).sort(), [201, 409]);
+  const index = attempts.findIndex(result => result.status === 201);
+  const { reservation } = attempts[index].data;
+  assert.equal(reservation.total, 510);
+  assert.equal((await create('attempt-' + (index + 1))).status, 200);
+  assert.equal((await create('attempt-' + (index + 1), { ...input, guests: 3 })).status, 409);
+  assert.equal((await create('attempt-past', { ...input, day: date(-1) })).status, 400);
+  assert.equal((await call(first.booking, available)).data.slots[0].remaining, 4);
+  const room = await book(first.booking, { ...standard(), room: 'familiar' }, guest.token);
+  assert.equal(room.status, 201);
+  const payments = (await call(first.booking, base + '/payments', { token: guest.token })).data.payments;
+  assert.equal(payments.length, 2);
+  assert.deepEqual((await call(first.booking, base + '/payments', { token: staff.token })).data.payments, []);
+  const personPayment = payments.find(row => row.code === reservation.code);
+  const roomPayment = payments.find(row => row.kind === 'habitacion');
+  const settle = (id, token, action, reference) => call(first.booking, base + '/operations/payments/' + id, {
+    method: 'POST', token, data: { action, reference },
+  });
+  assert.equal((await settle(personPayment.id, guest.token, 'cobrar', 'REC-701')).status, 403);
+  assert.equal((await settle(personPayment.id, staff.token, 'cobrar', 'REC-701')).data.payment.status, 'cobrada');
+  assert.equal((await settle(roomPayment.id, staff.token, 'cobrar', 'rec-701')).status, 409);
+  const cancel = token => call(first.booking, base + '/experience-bookings/' + reservation.id, { method: 'DELETE', token });
+  assert.equal((await cancel(staff.token)).status, 404);
+  assert.equal((await cancel(guest.token)).status, 200);
+  assert.equal((await cancel(guest.token)).status, 200);
+  assert.equal((await call(first.booking, available)).data.slots[0].remaining, 10);
+  const pending = await call(first.booking, history, { token: staff.token });
+  assert.equal(pending.data.summary.pendingRefund, 510);
+  assert.equal((await settle(personPayment.id, admin.token, 'reembolsar', 'DEV-701')).data.payment.status, 'reembolsada');
+  const events = await call(first.booking, base + '/operations/payments/' + personPayment.id, { token: admin.token });
+  assert.deepEqual(events.data.events.map(entry => entry.status), ['pendiente', 'cobrada', 'reembolso_pendiente', 'reembolsada']);
+  assert.deepEqual(events.data.events.map(entry => entry.actor_id), [3, 2, 3, 1]);
+  const exportResult = await call(first.booking, pdf, { token: admin.token });
+  assert.equal(exportResult.headers['Content-Type'], 'application/pdf');
+  assert.ok(exportResult.data.subarray(0, 8).equals(Buffer.from('%PDF-1.4')));
+  close(first.auth);
+  close(first.booking);
+  const second = open({ adminIds: '1', staffIds: '2' });
+  const restarted = await call(second.booking, history, { token: admin.token });
+  assert.equal(restarted.data.summary.refunded, 510);
+  assert.equal(restarted.data.summary.received, 510);
+  assert.equal(restarted.data.summary.count, 2);
+});
+
+test('actualiza una base de reservas v2 conservando historial e idempotencia', async t => {
+  const { paths, open, close } = setup(t);
+  const db = new DatabaseSync(paths.booking);
+  db.exec(`
+    CREATE TABLE reservations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, room TEXT NOT NULL CHECK (room IN ('estandar','deluxe','presidencial')),
+      check_in TEXT NOT NULL, check_out TEXT NOT NULL, guests INTEGER NOT NULL, nights INTEGER NOT NULL, total INTEGER NOT NULL,
+      payment_method TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'confirmada', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, request_key TEXT
+    );
+  `);
+  db.prepare('INSERT INTO reservations (id,user_id,room,check_in,check_out,guests,nights,total,payment_method,request_key) VALUES (?,?,?,?,?,?,?,?,?,?)')
+    .run(17, 1, 'estandar', date(2), date(4), 2, 2, 240, 'efectivo', 'migration-key');
+  db.exec("UPDATE sqlite_sequence SET seq=40 WHERE name='reservations'");
+  db.close();
+  const first = open();
+  const guest = (await register(first.auth, 'previous@example.test')).data;
+  assert.equal((await book(first.booking, standard(), guest.token, 'migration-key')).data.reservation.id, 17);
+  const newer = await book(first.booking, { ...standard(), room: 'terraza' }, guest.token, 'new-room-key');
+  assert.equal(newer.data.reservation.id, 41);
+  close(first.auth);
+  close(first.booking);
+  const second = open();
+  const result = await call(second.booking, '/api/booking/payments', { token: guest.token });
+  assert.deepEqual(result.data.payments.map(row => row.status), ['pendiente', 'historica']);
 });

@@ -7,6 +7,8 @@ const destinations = [
   { name: 'Charquini', coordinates: [-16.2992778, -68.1011031], image: 'viaje1.jpg', text: 'Paisajes del altiplano y senderos de montaña.' },
   { name: 'Tiwanaku', coordinates: [-16.5553030, -68.6735141], image: 'viaje2.jpg', text: 'Un recorrido por el patrimonio arqueológico de Bolivia.' },
   { name: 'Bar y coctelería', image: 'bar1.jpg', text: 'Una pausa al final del día. Ubicación pendiente de confirmar.' },
+  { name: 'Valle de la Luna', coordinates: [-16.566817, -68.094475], text: 'Formaciones de arcilla y senderos en el sur de La Paz.' },
+  { name: 'Mirador Killi Killi', coordinates: [-16.495058, -68.127445], text: 'Un mirador con vistas panorámicas sobre la ciudad.' },
 ];
 
 function RouteDialog({ destination, close }) {
@@ -70,7 +72,7 @@ export function Guide() {
     <div className="page-heading"><p className="overline">ALREDEDORES DE VIACHA</p><h1>Guía local</h1>
       <p>Explora la región y consulta recorridos desde la Plaza del Estudiante, La Paz.</p></div>
     <div className="cards">{destinations.map(place =>
-      <article className="card" key={place.name}><img src={'/assets/' + place.image} alt={place.name} />
+      <article className="card" key={place.name}>{place.image ? <img src={'/assets/' + place.image} alt={place.name} /> : <div className="destination-marker" aria-hidden="true">↗</div>}
         <div className="card-body"><h2>{place.name}</h2><p>{place.text}</p>
           {place.coordinates && <button className="button secondary" onClick={event => {
             trigger.current = event.currentTarget;

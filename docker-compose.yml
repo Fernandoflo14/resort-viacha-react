@@ -7,6 +7,8 @@ services:
     environment:
       JWT_SECRET: ${JWT_SECRET:?Configura JWT_SECRET en .env}
       AUTH_DB: /data/auth.sqlite
+      ADMIN_USER_IDS: "${ADMIN_USER_IDS:-}"
+      STAFF_USER_IDS: "${STAFF_USER_IDS:-}"
     volumes:
       - auth_data:/data
     healthcheck:

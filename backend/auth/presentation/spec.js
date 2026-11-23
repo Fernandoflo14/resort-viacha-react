@@ -1,9 +1,10 @@
-import { document, integer, object, ok, operation, ref, string } from '../shared/openapi.js';
+import { document, integer, object, ok, operation, ref, string } from '../../shared/openapi.js';
 
 const input = object({ email: string({ format: 'email' }), password: string({ format: 'password', maxLength: 1024 }) });
 const user = object({
   id: integer(), email: string({ format: 'email' }), name: string({ maxLength: 60 }),
   description: string({ maxLength: 300 }), profileImage: string(), createdAt: string(),
+  role: string({ enum: ['guest', 'staff', 'admin'] }),
 });
 const auth = ok({ token: string(), user: ref('User') });
 const errors = [[400, 'Datos inválidos'], [413, 'Datos demasiado grandes'], [415, 'Se requiere JSON']];

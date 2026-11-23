@@ -1,9 +1,7 @@
-import { HttpError } from '../shared/http.js';
-import { hashPassword, checkPassword } from './passwords.js';
-import { credentials, legacyEmail, profile } from './validation.js';
+import { ApplicationError } from '../../shared/application-error.js';
+import { credentials, legacyEmail, profile } from '../domain/validation.js';
 
-export function accounts(users, jwt) {
-  const authResponse = (user) => ({ success: true, user, token: jwt.issue(user.id) });
+export function accounts(users, { hashPassword, checkPassword }) {
   const attempts = new Map();
   let activePasswords = 0;
 
@@ -14,7 +12,7 @@ export function accounts(users, jwt) {
     }
     const entry = attempts.get(email) || { count: 0, until: now + 60_000 };
     if (entry.count >= 12 || activePasswords >= 12 || (!attempts.has(email) && attempts.size >= 2000)) {
-      throw new HttpError(429, 'Demasiados intentos. Espera un momento e inténtalo de nuevo.');
+      throw new ApplicationError(429, 'Demasiados intentos. Espera un momento e inténtalo de nuevo.');
     }
     entry.count++;
     attempts.set(email, entry);
@@ -28,8 +26,8 @@ export function accounts(users, jwt) {
       try {
         if (register) {
           const user = users.create(email, await hashPassword(password));
-          if (!user) throw new HttpError(409, 'Ese correo ya tiene una cuenta.');
-          return authResponse(user);
+          if (!user) throw new ApplicationError(409, 'Ese correo ya tiene una cuenta.');
+          return user;
         }
         let row = users.byEmail(email);
         if (!row) {
@@ -38,18 +36,18 @@ export function accounts(users, jwt) {
           if (candidate?.passwordHash.startsWith('$2')) row = candidate;
         }
         if (!(await checkPassword(password, row?.passwordHash)) || !row) {
-          throw new HttpError(401, 'Correo o contraseña incorrectos.');
+          throw new ApplicationError(401, 'Correo o contraseña incorrectos.');
         }
         attempts.delete(email);
         const { passwordHash, ...user } = row;
-        return authResponse(user);
+        return user;
       } finally {
         activePasswords--;
       }
     },
     profile(id, fields) {
       const user = fields === undefined ? users.find(id) : users.update(id, profile(fields));
-      if (!user) throw new HttpError(404, 'No se encontró tu cuenta.');
+      if (!user) throw new ApplicationError(404, 'No se encontró tu cuenta.');
       return user;
     },
   };

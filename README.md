@@ -1,6 +1,6 @@
 # Paradise Resort · Viacha
 
-Sitio para conocer el resort, consultar tarifas y disponibilidad, reservar habitaciones y gestionar la cuenta. La interfaz usa React y conserva las fotos, la guía turística, el calendario y las tres categorías de habitación del [proyecto original](https://github.com/kimbafox/RESORT-VIACHA).
+Sitio para conocer el resort, consultar tarifas y disponibilidad, reservar habitaciones y gestionar la cuenta. La interfaz usa React y conserva las fotos, la guía turística, el calendario y las tres categorías de alojamiento del [proyecto original](https://github.com/kimbafox/RESORT-VIACHA).
 
 ## Iniciar con Docker
 
@@ -47,7 +47,7 @@ Cada servicio tiene un punto de entrada HTTP, validación y lógica de negocio, 
 
 Las contraseñas nuevas se guardan como hash scrypt. Se admiten los hashes bcrypt de las cuentas anteriores. La base de cuentas impone la unicidad del correo. La base de reservas comprueba el cupo y registra cada solicitud en una transacción. La clave de idempotencia agrupa reintentos de una misma reserva.
 
-Las fechas se validan en la zona `America/La_Paz`. El precio se calcula en el backend y las formas de pago son simuladas. Las rutas turísticas dependen de OpenStreetMap y OSRM para mostrar mapas y calcular trayectos.
+Las fechas se validan en la zona `America/La_Paz`. El precio se calcula en el backend. El pago se hace en recepción y el personal registra el cobro o la devolución después de verificar el comprobante. Las rutas turísticas dependen de OpenStreetMap y OSRM para mostrar mapas y calcular trayectos.
 
 ## Importar datos existentes
 
@@ -79,51 +79,13 @@ Vite muestra la dirección del sitio en la terminal. Para ejecutar la versión c
 
 La suite se ejecuta con `npm test`. Cubre el registro concurrente, la sesión JWT, el guardado de perfil y foto, la persistencia en SQLite, las reservas simultáneas, los reintentos, las cancelaciones, la migración y los contratos OpenAPI.
 
-## Subir el código a GitHub
+## Repositorio y despliegue
 
-Descarga y extrae el ZIP en una carpeta aparte. Abre PowerShell en la carpeta donde quieras crear un clon nuevo. Para autenticar Git con una cuenta que tenga permiso de escritura, usa [GitHub CLI](https://cli.github.com/). Si ya tienes varias cuentas conectadas, usa `gh auth switch` para elegir la correcta.
-
-```powershell
-gh auth login --hostname github.com --git-protocol https --web
-gh auth setup-git --hostname github.com
-gh api user --jq '.login'
-
-git clone https://github.com/kimbafox/RESORT-VIACHA.git resort-viacha-clon
-Set-Location resort-viacha-clon
-git switch -c migracion-react
-```
-
-Desde el clon nuevo, ajusta `$fuente` para que apunte a la carpeta extraída donde está este README. El paso que elimina archivos antiguos se ejecuta en la rama nueva. Evita que Windows mezcle las carpetas antiguas en mayúsculas con las nuevas.
-
-```powershell
-$fuente = 'C:\ruta\a\la\carpeta\extraida\RESORT-VIACHA'
-if (!(Test-Path -LiteralPath (Join-Path $fuente 'Dockerfile.backend'))) { throw 'Verifica la ruta del ZIP extraído.' }
-if ((git branch --show-current) -ne 'migracion-react') { throw 'Abre la rama migracion-react en el clon nuevo.' }
-
-git rm -r --ignore-unmatch -- BACKEND FRONTEND middleware routes test server.js package-lock.json
-if ($LASTEXITCODE -ne 0) { throw 'Revisa la salida de git rm antes de continuar.' }
-Get-ChildItem -Force -LiteralPath $fuente |
-  ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination . -Recurse -Force }
-
-npm install
-npm test
-npm run build
-```
-
-Cuando los comandos terminen correctamente, revisa los cambios y sube la rama:
-
-```powershell
-git add -A
-git diff --cached --stat
-git commit -m "Migra el resort a React y separa cuentas y reservas"
-git push -u origin migracion-react
-```
-
-GitHub puede abrir la [comparación entre main y migracion-react](https://github.com/kimbafox/RESORT-VIACHA/compare/main...migracion-react?expand=1). Mantén el pull request abierto mientras haces las pruebas. Si Railway tiene despliegues automáticos desde `main`, fusionar el PR dispara un despliegue del servicio vinculado.
+El repositorio de esta instalación es [Fernandoflo14/resort-viacha-react](https://github.com/Fernandoflo14/resort-viacha-react). Prepara cambios en una rama separada y prueba la actualización antes de fusionar a `main`. El proyecto que ya está en Railway usa `valiant-presence` para cuentas, `pretty-wonder` para reservas y `faithful-heart` para el frontend.
 
 ## Publicar en Railway
 
-Prueba primero en un entorno de Railway separado del sitio público. Configura los tres servicios en el mismo proyecto y entorno, y conecta cada uno al repositorio, a la raíz del proyecto y a la rama `migracion-react`.
+Prueba primero en un entorno de Railway separado del sitio público. Configura los tres servicios en el mismo proyecto y entorno, y conecta cada uno al repositorio, a la raíz del proyecto y a la rama que quieras probar.
 
 | Servicio | Dockerfile | Start Command | Volumen |
 | --- | --- | --- | --- |
@@ -139,7 +101,7 @@ En **Variables** fija `RAILWAY_DOCKERFILE_PATH=Dockerfile.backend` en los dos mi
 | `reservas` | `PORT=3002`, `HOST=::`, `RESERVATIONS_DB=/data/reservas.sqlite`, `RAILWAY_RUN_UID=0` y el mismo `JWT_SECRET` |
 | Frontend | `PORT=3000`, `AUTH_URL=http://${{auth.RAILWAY_PRIVATE_DOMAIN}}:3001`, `RESERVATIONS_URL=http://${{reservas.RAILWAY_PRIVATE_DOMAIN}}:3002` |
 
-Las referencias de variables suponen que los servicios se llaman exactamente `auth` y `reservas`. Guarda `JWT_SECRET` en Railway. Los dos volúmenes son independientes y Railway documenta el ajuste `RAILWAY_RUN_UID=0` para sus permisos. [Variables y red privada de Railway](https://docs.railway.com/networking/domains/working-with-domains) · [Volúmenes](https://docs.railway.com/volumes)
+Para instalaciones nuevas la tabla usa los nombres `auth` y `reservas`. En tu proyecto actual las referencias usan `valiant-presence` y `pretty-wonder`. Guarda `JWT_SECRET` en Railway. Los dos volúmenes son independientes y Railway documenta el ajuste `RAILWAY_RUN_UID=0` para sus permisos. [Variables y red privada de Railway](https://docs.railway.com/networking/domains/working-with-domains) · [Volúmenes](https://docs.railway.com/volumes)
 
 Configura `/health` como ruta de comprobación en los tres servicios. Habilita un dominio público solo para el frontend, con puerto de destino 3000. Prueba el registro, la edición de perfil, la reserva y sus APIs de Swagger. [Comprobaciones de salud de Railway](https://docs.railway.com/deployments/healthchecks)
 
@@ -149,3 +111,26 @@ Configura `/health` como ruta de comprobación en los tres servicios. Habilita u
 2. Si hay cuentas o reservas reales, conserva un respaldo del volumen anterior y genera una copia consistente de `/data/resort.sqlite`. Pausa las escrituras del sitio antiguo durante la copia final. Descarga la copia y ejecuta `npm run migrate -- backups/resort.sqlite` en un directorio local de trabajo limpio. El script crea `data/auth.sqlite` y `data/reservas.sqlite`.
 3. Sube esas dos bases a sus respectivos volúmenes, con los nombres `auth.sqlite` y `reservas.sqlite`. Para que Railway mantenga disponible el acceso al volumen durante la carga sin reemplazar una base abierta, inicia los servicios privados con rutas SQLite provisionales distintas. Después de subir los archivos, apunta `AUTH_DB` y `RESERVATIONS_DB` a los archivos migrados y vuelve a desplegar. Conserva la copia original fuera de GitHub. [Acceso a archivos de volúmenes](https://docs.railway.com/volumes)
 4. Cuando las dos API estén sanas y los datos estén verificados, configura el servicio que ya posee el dominio público como **Frontend** con las variables de la tabla y la rama de la versión nueva. Revisa que use el Dockerfile raíz, el puerto 3000 y el comando de inicio de la imagen. Conserva el volumen anterior durante la transición. Una vez revisado el cambio, puedes fusionar el PR y vincular los tres servicios de producción a `main`.
+
+
+## Experiencias, recepción y administración
+
+- El huésped puede reservar habitaciones y experiencias desde la web, consultar el cupo por turno y ver el estado del pago en **Mi cuenta**. La cancelación libera el cupo y anula un saldo pendiente. Si el importe se había cobrado, crea una devolución pendiente.
+- **Recepción** consulta el historial por fecha de entrada o actividad y registra cobros y devoluciones ya realizados. La referencia del comprobante queda ligada al actor y al movimiento. El mismo comprobante no se puede registrar dos veces.
+- **Administración** dispone de las funciones de recepción y puede descargar el informe en PDF. El informe separa cobros verificados, pendientes, devoluciones y reservas canceladas. Los registros importados antes de esta versión figuran como históricos y sus importes no cuentan en los cobros verificados.
+- El resort debe sustituir las tarifas, los cupos, las fotos referenciales y los horarios de ejemplo antes de usar las nuevas ofertas comercialmente. Los catálogos están en `backend/reservations/domain/rooms.js` y `backend/reservations/domain/experiences.js`. Las rutas de la guía son informativas. Charquini y Tiwanaku tienen además turnos que se pueden reservar en Experiencias.
+
+### Dar acceso al personal
+
+1. Registra primero las cuentas autorizadas. Consigue el `id` de cada cuenta en **Mi perfil** o en la respuesta de `GET /api/auth/profile`.
+2. En Railway abre las variables del microservicio de **cuentas**. Define `ADMIN_USER_IDS` con los IDs de los administradores y `STAFF_USER_IDS` con los IDs de recepción. Usa comas si son varios. Los IDs corresponden a cuentas ya verificadas por el operador de esa instalación.
+3. Despliega cuentas. Cada persona debe cerrar sesión e iniciar nuevamente para recibir su rol. En **Mi cuenta** aparecerá el acceso correspondiente. Un token emitido conserva el rol hasta expirar, con un máximo de dos horas. Para revocar todas las sesiones inmediatamente, cambia el secreto JWT en los dos microservicios.
+4. Para Docker Compose local, fija estas mismas dos variables en `.env`. Sus valores predeterminados están vacíos.
+
+### Actualización de la versión desplegada
+
+Conserva ambos volúmenes SQLite y guarda un respaldo antes de aplicar esta actualización. En la primera puesta en marcha, reservas amplía el catálogo compatible y crea las tablas de experiencias, pagos y movimientos. El cambio conserva los IDs, las reservas anteriores y sus claves de idempotencia. Los servicios siguen usando los mismos puertos, rutas de salud y referencias entre servicios. Si necesitas volver a la versión anterior tras habilitar nuevas operaciones, prueba la reversión con copias de los volúmenes.
+
+El sistema registra operaciones verificadas en recepción. Para cobrar en línea se requiere configurar una pasarela, su cuenta comercial, webhooks autenticados y flujos de confirmación y devolución. Esta versión no recopila números de tarjeta ni declara pagado un importe por elegir un método en la web.
+
+El backend conserva dos servicios con composición en `app.js`, modelos y validaciones en `domain`, casos de uso en `application`, SQLite y exportación en `infrastructure`, y adaptadores de operaciones y contratos OpenAPI en `presentation`. La lógica de reservas y pagos calcula importes y verifica cupos en el servidor.
