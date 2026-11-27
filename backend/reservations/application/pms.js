@@ -6,9 +6,9 @@ const fail = (status,message) => { throw new ApplicationError(status,message); }
 const reception = ['admin','staff','manager'];
 const finance = [...reception,'finance'];
 const ops = [...reception,'housekeeping','maintenance','services','finance'];
-const requireRole = (actor,allowed) => { if(!allowed.includes(actor.role)) fail(403,'No tienes permiso para esta operaci�n.'); };
+const requireRole = (actor,allowed) => { if(!allowed.includes(actor.role)) fail(403,'No tienes permiso para esta operación.'); };
 const number = (value,min,max) => { if(!Number.isSafeInteger(value)||value<min||value>max) fail(400,'Cantidad fuera del rango permitido.'); return value; };
-const text = (value,max=100) => { if(typeof value!=='string'||!value.trim()||value.trim().length>max) fail(400,'Completa un texto v�lido.');return value.trim(); };
+const text = (value,max=100) => { if(typeof value!=='string'||!value.trim()||value.trim().length>max) fail(400,'Completa un texto válido.');return value.trim(); };
 
 export function pms(db) {
   const get = (sql,...args) => db.prepare(sql).get(...args);
@@ -67,7 +67,7 @@ export function pms(db) {
         if(!r||r.status!=='confirmada'||r.check_in>today()||r.check_out<=today()) fail(409,'La reserva no se puede registrar como llegada hoy.');
         if(get('SELECT id FROM pms_stays WHERE reservation_id=?',r.id)) fail(409,'La reserva ya tiene una estancia.');
         const room=get("SELECT * FROM pms_rooms WHERE id=? AND condition='lista' AND category=?",number(input.roomId,1,Number.MAX_SAFE_INTEGER),r.room);
-        if(!room||get("SELECT id FROM pms_stays WHERE room_id=? AND status='alojado'",room.id)) fail(409,'Habitaci�n no disponible para esta categor�a.');
+        if(!room||get("SELECT id FROM pms_stays WHERE room_id=? AND status='alojado'",room.id)) fail(409,'Habitación no disponible para esta categoría.');
         const result=get("INSERT INTO pms_stays(reservation_id,room_id,status,actor_id) VALUES(?,?,'alojado',?) RETURNING id",r.id,room.id,actor.id);
         audit(actor,'check_in',result.id); return folio(result.id);
       });
@@ -80,7 +80,7 @@ export function pms(db) {
     charge(actor,id,input) {
       requireRole(actor,[...reception,'services']);
       return transaction(db,()=>{
-        if(stay(id).status!=='alojado') fail(409,'La estancia est� cerrada.');
+        if(stay(id).status!=='alojado') fail(409,'La estancia está cerrada.');
         const product=get('SELECT * FROM pms_catalog WHERE id=? AND enabled=1',number(input.productId,1,Number.MAX_SAFE_INTEGER));
         if(!product) fail(404,'Servicio no disponible.');
         const qty=number(input.quantity,1,50);
@@ -92,9 +92,9 @@ export function pms(db) {
       requireRole(actor,finance);
       return transaction(db,()=>{
         const data=folio(id);
-        if(data.stay.status!=='alojado') fail(409,'La estancia est� cerrada.');
+        if(data.stay.status!=='alojado') fail(409,'La estancia está cerrada.');
         const amount=number(input.amountCents,1,data.balance);
-        if(!['qr','tarjeta','efectivo'].includes(input.method)) fail(400,'M�todo de pago inv�lido.');
+        if(!['qr','tarjeta','efectivo'].includes(input.method)) fail(400,'Método de pago inválido.');
         const reference=text(input.reference,60);
         if(get('SELECT id FROM pms_settlements WHERE reference=?',reference)||get('SELECT id FROM payment_events WHERE lower(reference)=lower(?)',reference)) fail(409,'Comprobante ya registrado.');
         const row=get('INSERT INTO pms_settlements(stay_id,amount_cents,method,reference,actor_id) VALUES(?,?,?,?,?) RETURNING id',id,amount,input.method,reference,actor.id);
@@ -108,7 +108,7 @@ export function pms(db) {
         if(data.stay.status!=='alojado'||data.balance!==0||data.lodging?.status!=='cobrada') fail(409,'La estancia tiene cargos pendientes o requiere revisar el pago del alojamiento.');
         run("UPDATE pms_stays SET status='finalizado',check_out_at=CURRENT_TIMESTAMP WHERE id=?",id);
         run("UPDATE pms_rooms SET condition='limpieza' WHERE id=?",data.stay.room_id);
-        run("INSERT INTO pms_tasks(room_id,kind,description,actor_id) VALUES(?,'limpieza','Preparar habitaci�n tras salida',?)",data.stay.room_id,actor.id);
+        run("INSERT INTO pms_tasks(room_id,kind,description,actor_id) VALUES(?,'limpieza','Preparar habitación tras salida',?)",data.stay.room_id,actor.id);
         audit(actor,'check_out',id);return folio(id);
       });
     },
@@ -124,7 +124,7 @@ export function pms(db) {
     },
     review(actor,id,input) {
       requireRole(actor,finance);
-      if(typeof input.approve!=='boolean') fail(400,'Indica aprobaci�n o rechazo.');
+      if(typeof input.approve!=='boolean') fail(400,'Indica aprobación o rechazo.');
       return transaction(db,()=>{
         const proof=get("SELECT * FROM pms_proofs WHERE id=? AND status='pendiente'",id);
         if(!proof) fail(404,'Comprobante no pendiente.');
@@ -143,9 +143,9 @@ export function pms(db) {
       return transaction(db,()=>{
         const task=get('SELECT * FROM pms_tasks WHERE id=?',id);
         if(!task) fail(404,'Tarea no encontrada.');
-        if(actor.role==='housekeeping'&&task.kind!=='limpieza'||actor.role==='maintenance'&&task.kind!=='mantenimiento') fail(403,'Tarea de otra �rea.');
+        if(actor.role==='housekeeping'&&task.kind!=='limpieza'||actor.role==='maintenance'&&task.kind!=='mantenimiento') fail(403,'Tarea de otra área.');
         const next={pendiente:'en_proceso',en_proceso:'finalizada'}[task.status];
-        if(!next||input.status!==next) fail(409,'Transici�n no permitida.');
+        if(!next||input.status!==next) fail(409,'Transición no permitida.');
         run('UPDATE pms_tasks SET status=? WHERE id=?',next,id);
         if(next==='finalizada') run("UPDATE pms_rooms SET condition='lista' WHERE id=? AND condition=?",task.room_id,task.kind);
         audit(actor,'task_update',id);return {id,status:next};

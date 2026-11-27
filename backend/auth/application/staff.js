@@ -32,12 +32,12 @@ export function staffDirectory(db, passwords, admins, staff) {
   const roleFor = id => current(id)?.role || 'guest';
   const active = id => current(id)?.active !== 0;
   function requireAdmin(identity) {
-    if (!active(identity.id) || roleFor(identity.id) !== 'admin' || identity.role !== 'admin') reject(403, 'No tienes permiso de administraci�n.');
+    if (!active(identity.id) || roleFor(identity.id) !== 'admin' || identity.role !== 'admin') reject(403, 'No tienes permiso de administración.');
   }
   function fields(input) {
     const name = typeof input.name === 'string' ? input.name.trim() : '';
     const department = typeof input.department === 'string' ? input.department.trim() : '';
-    if (!name || name.length > 60 || department.length > 80 || !staffRoles.includes(input.role)) reject(400, 'Completa nombre, departamento y rol v�lidos.');
+    if (!name || name.length > 60 || department.length > 80 || !staffRoles.includes(input.role)) reject(400, 'Completa nombre, departamento y rol válidos.');
     return { name, department, role: input.role };
   }
   return {
@@ -54,7 +54,7 @@ export function staffDirectory(db, passwords, admins, staff) {
       const hash = await passwords.hashPassword(password);
       requireAdmin(identity);
       return transaction(db, () => {
-        if (db.prepare('SELECT id FROM users WHERE email=?').get(email)) reject(409, 'El correo ya est� registrado.');
+        if (db.prepare('SELECT id FROM users WHERE email=?').get(email)) reject(409, 'El correo ya está registrado.');
         const user = db.prepare('INSERT INTO users(email,password_hash,name) VALUES(?,?,?) RETURNING id').get(email,hash,name);
         db.prepare('INSERT INTO staff_members(user_id,role,department) VALUES(?,?,?)').run(user.id,role,department);
         audit(identity.id,user.id,'create');
@@ -65,7 +65,7 @@ export function staffDirectory(db, passwords, admins, staff) {
       requireAdmin(identity);
       if (identity.id === id) reject(409, 'No puedes cambiar tu propio rol o estado.');
       const { name,department,role } = fields(input);
-      if (typeof input.active !== 'boolean') reject(400, 'Indica si la cuenta est� activa.');
+      if (typeof input.active !== 'boolean') reject(400, 'Indica si la cuenta está activa.');
       return transaction(db, () => {
         if (!current(id)) reject(404, 'Empleado no encontrado.');
         db.prepare('UPDATE users SET name=? WHERE id=?').run(name,id);

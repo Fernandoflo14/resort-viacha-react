@@ -13,13 +13,13 @@ const pages = { '/index.html': '', '/precios.html': 'habitaciones', '/calendario
   '/guia_turistica.html': 'guia', '/usuario.html': 'cuenta', '/login.html': 'cuenta' };
 const readRoute = () => location.hash.startsWith('#/') ? location.hash.slice(2) : pages[location.pathname] || '';
 const sessionKey = 'resort-viacha-session';
-const navigation = [['', 'Inicio'], ['habitaciones', 'Alojamiento'], ['experiencias', 'Experiencias'], ['guia', 'Gu�a local'], ['calendario', 'Calendario']];
-const siteName = 'Paradise Resort � Viacha';
+const navigation = [['', 'Inicio'], ['habitaciones', 'Alojamiento'], ['experiencias', 'Experiencias'], ['guia', 'Guía local'], ['calendario', 'Calendario']];
+const siteName = 'Paradise Resort · Viacha';
 
 function Brand() {
   return <a className="brand" href="#/" aria-label="Paradise Resort, inicio">
     <img src="/assets/logo.png" alt="" width="44" height="44" />
-    <span>PARADISE<small>RESORT � VIACHA</small></span>
+    <span>PARADISE<small>RESORT · VIACHA</small></span>
   </a>;
 }
 
@@ -27,31 +27,31 @@ function Home() {
   return <>
     <section className="hero">
       <div className="hero-inner wrap">
-        <p className="overline">VIACHA <span>�</span> LA PAZ, BOLIVIA</p>
+        <p className="overline">VIACHA <span>·</span> LA PAZ, BOLIVIA</p>
         <h1>Una pausa<br />en el <em>altiplano.</em></h1>
         <p>Descansa entre paisajes abiertos. Disfruta la piscina, el bar y una suite a tu medida en Paradise Resort.</p>
         <div className="actions">
-          <a className="button button-light" href="#/habitaciones">Ver habitaciones <span aria-hidden="true">?</span></a>
+          <a className="button button-light" href="#/habitaciones">Ver habitaciones <span aria-hidden="true">↗</span></a>
           <a className="button button-overlay" href="#/experiencias">Ver experiencias</a>
         </div>
       </div>
     </section>
     <section className="wrap home-section">
       <div className="section-heading">
-        <div><p className="overline">EL RESORT</p><h2>Elige c�mo pasar el d�a.</h2></div>
-        <p>Reserva una suite para quedarte o elige una actividad para venir por el d�a.</p>
+        <div><p className="overline">EL RESORT</p><h2>Elige cómo pasar el día.</h2></div>
+        <p>Reserva una suite para quedarte o elige una actividad para venir por el día.</p>
       </div>
       <div className="cards">
         {[['cuarto2.jpg', 'Alojamiento', 'Elige una suite y consulta tus fechas.', 'habitaciones', 'Ver suites'],
-          ['piscina.jpg', 'Experiencias', 'Piscina, gastronom�a y salidas en grupo.', 'experiencias', 'Ver actividades'],
-          ['viaje2.jpg', 'Gu�a local', 'Consulta rutas y planea tu recorrido por La Paz.', 'guia', 'Explorar rutas']].map(([image, title, description, page, label]) =>
+          ['piscina.jpg', 'Experiencias', 'Piscina, gastronomía y salidas en grupo.', 'experiencias', 'Ver actividades'],
+          ['viaje2.jpg', 'Guía local', 'Consulta rutas y planea tu recorrido por La Paz.', 'guia', 'Explorar rutas']].map(([image, title, description, page, label]) =>
           <article className="card" key={title}><img src={'/assets/' + image} alt="" loading="lazy" />
-            <div className="card-body"><h3>{title}</h3><p>{description}</p><a className="text-link" href={'#/' + page}>{label} ?</a></div></article>)}
+            <div className="card-body"><h3>{title}</h3><p>{description}</p><a className="text-link" href={'#/' + page}>{label} ↗</a></div></article>)}
       </div>
     </section>
     <section className="bottom-call">
-      <div className="wrap"><h2>Tu pr�xima escapada empieza aqu�.</h2>
-        <a className="button button-light" href="#/habitaciones">Consultar tarifas <span aria-hidden="true">?</span></a></div>
+      <div className="wrap"><h2>Tu próxima escapada empieza aquí.</h2>
+        <a className="button button-light" href="#/habitaciones">Consultar tarifas <span aria-hidden="true">↗</span></a></div>
     </section>
   </>;
 }
@@ -88,7 +88,7 @@ function App() {
   function expire(error) {
     if (error.status === 401) {
       updateSession(null);
-      setSessionError('Tu sesi�n expir�. Vuelve a iniciar sesi�n.');
+      setSessionError('Tu sesión expiró. Vuelve a iniciar sesión.');
     }
   }
 
@@ -127,11 +127,11 @@ function App() {
       <div className="wrap header-row">
         <Brand />
         <button className="menu-toggle" type="button" aria-expanded={menu} aria-controls="navigation"
-          onClick={() => setMenu(!menu)}>{menu ? 'Cerrar' : 'Men�'}</button>
+          onClick={() => setMenu(!menu)}>{menu ? 'Cerrar' : 'Menú'}</button>
         <nav id="navigation" className={menu ? 'nav is-open' : 'nav'} aria-label="Principal">
           {navigation.map(([id, label]) => <a key={id} href={'#/' + id} aria-current={isActive(id)}>{label}</a>)}
         </nav>
-        <a href="#/cuenta" className="account-link" aria-current={isActive('cuenta')}>Mi cuenta <span aria-hidden="true">?</span></a>
+        <a href="#/cuenta" className="account-link" aria-current={isActive('cuenta')}>Mi cuenta <span aria-hidden="true">↗</span></a>
       </div>
     </header>
     <main id="contenido" tabIndex={-1} key={page} className="page-enter">
@@ -141,10 +141,10 @@ function App() {
           page === 'cuenta' ? <Account session={session} extras={MyExperiences} /> :
           page === 'operaciones' ? <Operations session={session} /> :
           page === 'gestion' ? <PMS session={session} /> :
-          <section className="wrap page"><h1>P�gina no encontrada</h1><a className="text-link" href="#/">Volver al inicio</a></section>}
+          <section className="wrap page"><h1>Página no encontrada</h1><a className="text-link" href="#/">Volver al inicio</a></section>}
     </main>
-    <footer className="footer"><div className="wrap footer-row"><Brand /><span>Viacha, La Paz � Bolivia</span>
-      <a href="#/habitaciones">Habitaciones y reservas <span aria-hidden="true">?</span></a></div></footer>
+    <footer className="footer"><div className="wrap footer-row"><Brand /><span>Viacha, La Paz · Bolivia</span>
+      <a href="#/habitaciones">Habitaciones y reservas <span aria-hidden="true">↗</span></a></div></footer>
   </>;
 }
 

@@ -17,7 +17,7 @@ const staff={id:5,role:'staff'};
 const guest={id:10,role:'guest'};
 const tomorrow=()=>new Date(Date.parse(today()+'T00:00:00Z')+86400000).toISOString().slice(0,10);
 
-test('migraci�n en copia, llegada, comprobante, consumos, saldo y limpieza',()=>{
+test('migración en copia, llegada, comprobante, consumos, saldo y limpieza',()=>{
   const dir=mkdtempSync(join(tmpdir(),'pms-test-'));
   const original=join(dir,'original.sqlite'),copy=join(dir,'copy.sqlite');
   let db=new DatabaseSync(original);

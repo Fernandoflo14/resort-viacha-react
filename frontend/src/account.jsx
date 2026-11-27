@@ -29,13 +29,13 @@ export function AuthForm({ onAuth }) {
       <button type="button" aria-pressed={!register} disabled={busy} onClick={() => { setMode('login'); setNotice(''); }}>Ingresar</button>
       <button type="button" aria-pressed={register} disabled={busy} onClick={() => { setMode('register'); setNotice(''); }}>Crear cuenta</button>
     </div>
-    <h2>{register ? 'Crea tu cuenta' : 'Inicia sesi�n'}</h2>
+    <h2>{register ? 'Crea tu cuenta' : 'Inicia sesión'}</h2>
     <form onSubmit={submit} className="form-stack" key={mode}>
-      <label>Correo electr�nico<input name="email" type="email" autoComplete="email" required maxLength={254} value={email} onChange={event => setEmail(event.target.value)} /></label>
-      <label>Contrase�a<input name="password" type="password" autoComplete={register ? 'new-password' : 'current-password'} required minLength={register ? 8 : undefined} maxLength={register ? 128 : 1024} /></label>
+      <label>Correo electrónico<input name="email" type="email" autoComplete="email" required maxLength={254} value={email} onChange={event => setEmail(event.target.value)} /></label>
+      <label>Contraseña<input name="password" type="password" autoComplete={register ? 'new-password' : 'current-password'} required minLength={register ? 8 : undefined} maxLength={register ? 128 : 1024} /></label>
       {register && <small className="muted">Usa al menos 8 caracteres.</small>}
       {notice && <p className="notice error" role="alert">{notice}</p>}
-      <button className="button" disabled={busy}>{busy ? 'Un momento.' : register ? 'Crear mi cuenta' : 'Ingresar'}</button>
+      <button className="button" disabled={busy}>{busy ? 'Un momento…' : register ? 'Crear mi cuenta' : 'Ingresar'}</button>
     </form>
   </div>;
 }
@@ -86,8 +86,8 @@ function Profile({ session }) {
   return <section className="panel">
     <h2>Mi perfil</h2>
     <form className="form-stack" onSubmit={save}>
-      <div className="profile-avatar"><img src={draft.profileImage} alt="Foto de perfil" /><div><strong>{user.name || 'Hu�sped'}</strong><p>{user.email}</p><small className="muted">Cuenta {user.id}</small></div></div>
-      <div className="avatar-options" aria-label="Im�genes del resort">
+      <div className="profile-avatar"><img src={draft.profileImage} alt="Foto de perfil" /><div><strong>{user.name || 'Huésped'}</strong><p>{user.email}</p><small className="muted">Cuenta {user.id}</small></div></div>
+      <div className="avatar-options" aria-label="Imágenes del resort">
         {avatars.map(([file, label]) => <button key={file} type="button" aria-label={label} aria-pressed={draft.profileImage === '/assets/' + file}
           disabled={saving} onClick={() => update('profileImage', '/assets/' + file)}><img src={'/assets/' + file} alt="" /></button>)}
       </div>
@@ -95,7 +95,7 @@ function Profile({ session }) {
       <label>Nombre<input value={draft.name} maxLength={60} onChange={event => update('name', event.target.value)} disabled={saving} /></label>
       <label>Acerca de ti<textarea value={draft.description} rows="3" maxLength={300} onChange={event => update('description', event.target.value)} disabled={saving} /></label>
       {notice && <p className={notice.error ? 'notice error' : 'notice'} role={notice.error ? 'alert' : 'status'}>{notice.text}</p>}
-      <button className="button" disabled={saving || !changed.length}>{saving ? 'Guardando.' : 'Guardar perfil'}</button>
+      <button className="button" disabled={saving || !changed.length}>{saving ? 'Guardando…' : 'Guardar perfil'}</button>
     </form>
   </section>;
 }
@@ -125,7 +125,7 @@ function ReservationList({ session, onChange }) {
     try {
       await request(booking + '/reservations/' + id, { method: 'DELETE', token });
       setRows(current => current.map(row => row.id === id ? { ...row, status: 'cancelada' } : row));
-      setNotice({ text: 'La reserva se cancel�.' });
+      setNotice({ text: 'La reserva se canceló.' });
       onChange();
       setConfirm(null);
     } catch (error) {
@@ -139,15 +139,15 @@ function ReservationList({ session, onChange }) {
   return <section className="panel">
     <h2>Mis reservas</h2>
     {notice && <p className={notice.error ? 'notice error' : 'notice'} role={notice.error ? 'alert' : 'status'}>{notice.text}</p>}
-    {!rows && (notice ? <button className="button secondary" onClick={() => { setNotice(null); reload(revision + 1); }}>Reintentar</button> : <p role="status">Cargando reservas.</p>)}
-    {rows?.length === 0 && <><p>A�n no tienes reservas.</p><a href="#/habitaciones" className="text-link">Explorar habitaciones ?</a></>}
+    {!rows && (notice ? <button className="button secondary" onClick={() => { setNotice(null); reload(revision + 1); }}>Reintentar</button> : <p role="status">Cargando reservas…</p>)}
+    {rows?.length === 0 && <><p>Aún no tienes reservas.</p><a href="#/habitaciones" className="text-link">Explorar habitaciones ↗</a></>}
     {rows?.map(row => <article className="reservation" key={row.id}>
       <div className="reservation-top"><span>{row.code}</span><span className={'status ' + row.status}>{row.status}</span></div>
       <h3>{row.roomName}</h3>
-      <p>{dateLabel(row.checkIn)} - {dateLabel(row.checkOut)}</p>
-      <p>{row.guests} {row.guests === 1 ? 'hu�sped' : 'hu�spedes'} � {price(row.total)} � {row.paymentMethod.toUpperCase()}</p>
+      <p>{dateLabel(row.checkIn)} – {dateLabel(row.checkOut)}</p>
+      <p>{row.guests} {row.guests === 1 ? 'huésped' : 'huéspedes'} · {price(row.total)} · {row.paymentMethod.toUpperCase()}</p>
       {row.status === 'confirmada' && row.checkIn >= today() && (confirm === row.id ?
-        <div className="actions"><button type="button" className="button danger" disabled={pending !== null} onClick={() => cancel(row.id)}>{pending === row.id ? 'Cancelando.' : 'S�, cancelar'}</button>
+        <div className="actions"><button type="button" className="button danger" disabled={pending !== null} onClick={() => cancel(row.id)}>{pending === row.id ? 'Cancelando…' : 'Sí, cancelar'}</button>
           <button type="button" className="button secondary" disabled={pending !== null} onClick={() => setConfirm(null)}>Conservar reserva</button></div> :
         <button type="button" className="text-button" disabled={pending !== null} onClick={() => setConfirm(row.id)}>Cancelar reserva</button>)}
     </article>)}
@@ -159,13 +159,13 @@ export function Account({ session, extras: Extras }) {
   const [version, refresh] = useState(0);
   return <section className="wrap page">
     <div className="page-heading with-action"><div><p className="overline">PARADISE RESORT</p><h1>Mi cuenta</h1>
-      <p>Gestiona tu perfil y tus pr�ximas estad�as.</p></div>
+      <p>Gestiona tu perfil y tus próximas estadías.</p></div>
       {user && <div className="actions">
         {user.role !== 'guest' && <a className="button" href="#/gestion">Panel de trabajo</a>}
-        <button type="button" className="button secondary" onClick={() => updateSession(null)}>Cerrar sesi�n</button>
+        <button type="button" className="button secondary" onClick={() => updateSession(null)}>Cerrar sesión</button>
       </div>}</div>
     {sessionError && <p role="alert" className="notice error">{sessionError}</p>}
-    {checking ? <p role="status">Verificando tu sesi�n.</p> : user ? <div className="account-grid" key={user.id}>
+    {checking ? <p role="status">Verificando tu sesión…</p> : user ? <div className="account-grid" key={user.id}>
       <Profile session={session} /><ReservationList session={session} onChange={() => refresh(current => current + 1)} />
       {Extras && <Extras session={session} roomVersion={version} />}
       {user.role === 'guest' && <GuestStay session={session} />}

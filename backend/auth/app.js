@@ -22,14 +22,14 @@ export function authService({ path, secret, adminIds = process.env.ADMIN_USER_ID
     if (req.method === 'POST' && (path === '/register' || path === '/login')) {
       const register = path === '/register';
       const user = await service.authenticate(await body(req), register);
-      if (!directory.active(user.id)) throw new HttpError(403, 'La cuenta est� desactivada.');
+      if (!directory.active(user.id)) throw new HttpError(403, 'La cuenta está desactivada.');
       const role = register ? 'guest' : roleFor(user.id);
       json(res, register ? 201 : 200, { success: true, token: jwt.issue(user.id, role), user: { ...user, role } });
       return true;
     }
     if (path === '/profile' && (req.method === 'GET' || req.method === 'PUT')) {
       const { id } = jwt.identity(req);
-      if (!directory.active(id)) throw new HttpError(401, 'La cuenta est� desactivada.');
+      if (!directory.active(id)) throw new HttpError(401, 'La cuenta está desactivada.');
       const role = roleFor(id);
       const fields = req.method === 'PUT' ? await body(req) : undefined;
       json(res, 200, { success: true, user: { ...service.profile(id, fields), role } });

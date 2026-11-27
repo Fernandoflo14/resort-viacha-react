@@ -20,7 +20,7 @@ export function tokens(secret) {
     },
     identity(req) {
       const match = /^Bearer ([\w-]+)\.([\w-]+)\.([\w-]+)$/i.exec(req.headers.authorization || '');
-      const denied = new HttpError(401, 'Inicia sesi�n o vuelve a ingresar si tu sesi�n expir�.');
+      const denied = new HttpError(401, 'Inicia sesión o vuelve a ingresar si tu sesión expiró.');
       if (!match || match[1] !== header || match[2].length > 1024 || match[3].length !== 43) throw denied;
       const signature = Buffer.from(match[3], 'base64url');
       if (signature.length !== 32 || !timingSafeEqual(signature, sign(match[1] + '.' + match[2]))) throw denied;

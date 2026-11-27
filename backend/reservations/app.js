@@ -51,7 +51,7 @@ export function reservationsService({ path, secret }) {
       const id = Number(path.split('/').pop());
       if (db.prepare("SELECT id FROM pms_stays WHERE reservation_id=?").get(id)) {
         const { ApplicationError } = await import('../shared/application-error.js');
-        throw new ApplicationError(409, 'La reserva ya tiene una estancia. Consulta a recepci�n.');
+        throw new ApplicationError(409, 'La reserva ya tiene una estancia. Consulta a recepción.');
       }
       service.cancel(id, owner);
       json(res, 200, { success: true, message: 'Reserva cancelada.' });
