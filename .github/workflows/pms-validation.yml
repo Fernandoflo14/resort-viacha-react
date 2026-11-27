@@ -1,7 +1,7 @@
 name: PMS validation
 on:
   push:
-    branches: [pms-v3-operaciones, main]
+    branches: [pms-v3-operaciones, resort-luxury-v4, main]
   pull_request:
     branches: [main]
 permissions:

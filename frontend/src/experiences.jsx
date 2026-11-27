@@ -65,9 +65,9 @@ function ExperienceForm({ item, session }) {
     }
   }
 
-  if (saved) return <div className="panel notice" role="status"><h3>Reserva {saved.status}</h3>
+  if (saved) return <div className="panel notice" role="status"><h3>Solicitud recibida · pendiente de pago</h3>
     <p>{saved.code} · {dateLabel(saved.day)} a las {saved.slot} · {price(saved.total)}</p>
-    <a className="button" href="#/cuenta">Ir a mis reservas</a>
+    <a className="button" href="#/cuenta?seccion=pagos">Continuar al pago</a>
   </div>;
   return <div className="booking-layout">
     <form onSubmit={submit} className="panel form-stack">
@@ -90,8 +90,8 @@ function ExperienceForm({ item, session }) {
         slots.data?.slots.every(entry => entry.remaining < guests) && <p className="notice">Elige otra fecha o reduce el número de personas.</p>}
       <div className="total"><span>{guests} × {price(item.price)}</span><strong>{price(item.price * guests)}</strong></div>
       {notice && <p className="notice error" role="alert">{notice}</p>}
-      <p className="muted">Paga en recepción y consulta el estado del cobro en Mi cuenta.</p>
-      {session.user && <button className="button" disabled={busy || !slot || remaining < guests}>{busy ? 'Reservando…' : 'Confirmar experiencia'}</button>}
+      <p className="muted">Tu experiencia queda pendiente hasta que recepción verifique el pago.</p>
+      {session.user && <button className="button" disabled={busy || !slot || remaining < guests}>{busy ? 'Procesando…' : 'Solicitar experiencia'}</button>}
     </form>
     {!session.user && <aside>
       {session.checking ? <p role="status">Verificando tu sesión…</p> :
@@ -163,7 +163,7 @@ export function MyExperiences({ session, roomVersion }) {
         !reservations.data ? <p role="status">Consultando experiencias…</p> :
           !reservations.data.reservations.length ? <a className="text-link" href="#/experiencias">Explorar experiencias ↗</a> :
             reservations.data.reservations.map(row => <article className="reservation" key={row.id}>
-              <div className="reservation-top"><span>{row.code}</span><span className={'status ' + row.status}>{row.status}</span></div>
+              <div className="reservation-top"><span>Actividad</span><span className={'status ' + row.status}>{row.status==='cancelada'?'Cancelada':row.bookingState==='confirmada'?'Pago verificado · confirmada':'Pendiente de pago'}</span></div>
               <h3>{row.name}</h3><p>{dateLabel(row.day)} a las {row.slot} · {row.guests} {row.guests === 1 ? 'persona' : 'personas'}</p>
               {row.status === 'confirmada' && (confirm === row.id ? <div className="actions">
                 <button className="button danger" disabled={pending !== null} onClick={() => cancel(row.id)}>Sí, cancelar</button>
@@ -179,3 +179,4 @@ export function MyExperiences({ session, roomVersion }) {
     </section>
   </>;
 }
+

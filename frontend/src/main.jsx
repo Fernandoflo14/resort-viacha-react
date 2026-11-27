@@ -7,7 +7,9 @@ import { Guide } from './guide.jsx';
 import { Experiences, MyExperiences } from './experiences.jsx';
 import { Operations } from './operations.jsx';
 import { PMS } from './pms.jsx';
+import { LuxuryHome, LuxuryFooter } from './luxury.jsx';
 import './styles.css';
+import './luxury.css';
 
 const pages = { '/index.html': '', '/precios.html': 'habitaciones', '/calendario.html': 'calendario',
   '/guia_turistica.html': 'guia', '/usuario.html': 'cuenta', '/login.html': 'cuenta' };
@@ -135,7 +137,7 @@ function App() {
       </div>
     </header>
     <main id="contenido" tabIndex={-1} key={page} className="page-enter">
-      {page === '' ? <Home /> : page === 'habitaciones' ? <Rooms session={session} start={params.get('entrada')} /> :
+      {page === '' ? <LuxuryHome /> : page === 'habitaciones' ? <Rooms session={session} start={params.get('entrada')} end={params.get('salida')} guests={params.get('personas')} /> :
         page === 'calendario' ? <Calendar /> : page === 'guia' ? <Guide /> :
           page === 'experiencias' ? <Experiences session={session} /> :
           page === 'cuenta' ? <Account session={session} extras={MyExperiences} /> :
@@ -143,8 +145,7 @@ function App() {
           page === 'gestion' ? <PMS session={session} /> :
           <section className="wrap page"><h1>Página no encontrada</h1><a className="text-link" href="#/">Volver al inicio</a></section>}
     </main>
-    <footer className="footer"><div className="wrap footer-row"><Brand /><span>Viacha, La Paz · Bolivia</span>
-      <a href="#/habitaciones">Habitaciones y reservas <span aria-hidden="true">↗</span></a></div></footer>
+    <LuxuryFooter Brand={Brand}/>
   </>;
 }
 

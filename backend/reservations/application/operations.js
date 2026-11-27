@@ -12,7 +12,6 @@ function date(value) {
 }
 
 export const bookingCode = (kind, id) => (kind === 'habitacion' ? 'PR-' : 'EX-') + String(id).padStart(5, '0');
-const mapExperience = row => ({ ...row, code: bookingCode('experiencia', row.id), name: categoryFor(row.service)?.name ?? row.service });
 
 function forDate(day) {
   const [d, t] = new Intl.DateTimeFormat('sv-SE', {
@@ -22,19 +21,21 @@ function forDate(day) {
   return (slot) => day > d || slot > t;
 }
 
-export function operations(repository) {
+export function operations(repository, catalog = {experiences:()=>experiences,experience:categoryFor,room:roomFor}) {
+  const mapExperience = row => ({ ...row, code: bookingCode('experiencia', row.id), name: catalog.experience(row.service)?.name ?? row.service,
+    bookingState:row.status==='cancelada'?'cancelada':repository.payments(row.user_id).find(p=>p.kind==='experiencia'&&p.booking_id===row.id)?.status==='cobrada'?'confirmada':'pendiente_pago' });
   return {
-    catalog: () => experiences,
+    catalog: () => catalog.experiences(),
     slots(id, day) {
-      const service = categoryFor(id);
-      if (!service) fail(404, 'Experiencia no encontrada.');
+      const service = catalog.experience(id);
+      if (!service || service.enabled===false) fail(404, 'Experiencia no encontrada.');
       date(day);
       const open = forDate(day);
       return service.slots.map(time => ({ time, remaining: open(time) ? repository.remaining(service, day, time) : 0 }));
     },
     create(owner, input, key) {
-      const service = categoryFor(input.service);
-      if (!service) fail(400, 'Selecciona una experiencia válida.');
+      const service = catalog.experience(input.service);
+      if (!service || service.enabled === false) fail(400, 'Selecciona una experiencia válida.');
       const day = date(input.day);
       const { slot, guests, method } = input;
       if (!service.slots.includes(slot) || !Number.isInteger(guests) || guests < 1 || guests > 6) fail(400, 'Elige un horario y entre 1 y 6 personas.');
@@ -61,7 +62,7 @@ export function operations(repository) {
       const rows = repository.history(from, to).map(p => ({
         ...p,
         code: bookingCode(p.kind, p.booking_id),
-        item: (p.kind === 'habitacion' ? roomFor(p.item) : categoryFor(p.item))?.name ?? p.item,
+        item: (p.kind === 'habitacion' ? catalog.room(p.item) : catalog.experience(p.item))?.name ?? p.item,
       }));
       const summary = { count: rows.length, confirmed: 0, cancelled: 0, received: 0, pending: 0, refunded: 0, pendingRefund: 0 };
       for (const row of rows) {
@@ -88,3 +89,4 @@ export function operations(repository) {
     },
   };
 }
+

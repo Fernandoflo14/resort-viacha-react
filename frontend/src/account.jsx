@@ -142,7 +142,7 @@ function ReservationList({ session, onChange }) {
     {!rows && (notice ? <button className="button secondary" onClick={() => { setNotice(null); reload(revision + 1); }}>Reintentar</button> : <p role="status">Cargando reservas…</p>)}
     {rows?.length === 0 && <><p>Aún no tienes reservas.</p><a href="#/habitaciones" className="text-link">Explorar habitaciones ↗</a></>}
     {rows?.map(row => <article className="reservation" key={row.id}>
-      <div className="reservation-top"><span>{row.code}</span><span className={'status ' + row.status}>{row.status}</span></div>
+      <div className="reservation-top"><span>Alojamiento</span><span className={'status ' + row.status}>{row.status==='cancelada'?'Cancelada':row.bookingState==='confirmada'?'Pago verificado · confirmada':'Pendiente de pago'}</span></div>
       <h3>{row.roomName}</h3>
       <p>{dateLabel(row.checkIn)} – {dateLabel(row.checkOut)}</p>
       <p>{row.guests} {row.guests === 1 ? 'huésped' : 'huéspedes'} · {price(row.total)} · {row.paymentMethod.toUpperCase()}</p>
@@ -157,6 +157,7 @@ function ReservationList({ session, onChange }) {
 export function Account({ session, extras: Extras }) {
   const { user, token, checking, updateSession, sessionError, restoreSession } = session;
   const [version, refresh] = useState(0);
+  const [tab,setTab]=useState(()=>location.hash.includes('seccion=pagos')?'pagos':'reservas');
   return <section className="wrap page">
     <div className="page-heading with-action"><div><p className="overline">PARADISE RESORT</p><h1>Mi cuenta</h1>
       <p>Gestiona tu perfil y tus próximas estadías.</p></div>
@@ -165,11 +166,14 @@ export function Account({ session, extras: Extras }) {
         <button type="button" className="button secondary" onClick={() => updateSession(null)}>Cerrar sesión</button>
       </div>}</div>
     {sessionError && <p role="alert" className="notice error">{sessionError}</p>}
-    {checking ? <p role="status">Verificando tu sesión…</p> : user ? <div className="account-grid" key={user.id}>
-      <Profile session={session} /><ReservationList session={session} onChange={() => refresh(current => current + 1)} />
-      {Extras && <Extras session={session} roomVersion={version} />}
-      {user.role === 'guest' && <GuestStay session={session} />}
-    </div> :
+    {checking ? <p role="status">Verificando tu sesión…</p> : user ? <>
+      <div className="guest-tabs" aria-label="Mi cuenta">{[['reservas','Mi alojamiento'],['experiencias','Mis actividades'],['pagos','Pagos y estancia'],['perfil','Mis datos']].map(([id,title])=><button key={id} aria-pressed={tab===id} onClick={()=>setTab(id)}>{title}</button>)}</div>
+      {tab==='reservas'&&<ReservationList session={session} onChange={() => refresh(current => current + 1)} />}
+      {tab==='experiencias'&&Extras&&<Extras session={session} roomVersion={version}/>}
+      {tab==='pagos'&&user.role==='guest'&&<GuestStay session={session}/>}
+      {tab==='pagos'&&user.role!=='guest'&&<a className="button" href="#/gestion">Ir a mi panel de trabajo</a>}
+      {tab==='perfil'&&<Profile session={session}/>}
+    </> :
       token ? <button type="button" className="button" onClick={() => restoreSession()}>Reintentar</button> : <AuthForm onAuth={updateSession} />}
   </section>;
 }

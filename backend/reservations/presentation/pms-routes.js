@@ -14,13 +14,15 @@ export function pmsRoutes(service,jwt) {
     else if(method==='POST'&&path==='/pms/proofs') {data=service.proof(actor,await body(req)); status=201;}
     else if(method==='POST'&&path==='/pms/catalog') {data=service.product(actor,await body(req)); status=201;}
     else {
-      const match=/^\/pms\/(stays|proofs|tasks)\/(\d+)(?:\/(charges|payments|check-out|review))?$/.exec(path);
+      const match=/^\/pms\/(stays|proofs|stay-proofs|tasks)\/(\d+)(?:\/(charges|payments|check-out|review|proof))?$/.exec(path);
       if(!match) return false;
       const [,entity,raw,action]=match, id=Number(raw);
       if(entity==='stays'&&method==='GET'&&!action) data=service.folio(actor,id);
       else if(entity==='stays'&&method==='POST'&&action==='charges') data=service.charge(actor,id,await body(req));
       else if(entity==='stays'&&method==='POST'&&action==='payments') data=service.settle(actor,id,await body(req));
       else if(entity==='stays'&&method==='POST'&&action==='check-out') data=service.checkOut(actor,id);
+      else if(entity==='stays'&&method==='POST'&&action==='proof') data=service.stayProof(actor,id,await body(req));
+      else if(entity==='stay-proofs'&&method==='POST'&&action==='review') data=service.reviewStayProof(actor,id,await body(req));
       else if(entity==='proofs'&&method==='POST'&&action==='review') data=service.review(actor,id,await body(req));
       else if(entity==='tasks'&&method==='PUT'&&!action) data=service.task(actor,id,await body(req));
       else return false;

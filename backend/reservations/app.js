@@ -14,6 +14,7 @@ import { operationsRoutes } from './presentation/operations-routes.js';
 import { installPms } from './infrastructure/pms-schema.js';
 import { pms } from './application/pms.js';
 import { pmsRoutes } from './presentation/pms-routes.js';
+import { resortCatalog } from './infrastructure/resort-catalog.js';
 
 export function reservationsService({ path, secret }) {
   const jwt = tokens(secret);
@@ -21,12 +22,30 @@ export function reservationsService({ path, secret }) {
   expandRooms(db);
   installOperations(db);
   installPms(db);
+  const catalog = resortCatalog(db);
   const pmsApi = pmsRoutes(pms(db), jwt);
-  const service = roomBookings(reservationRepository(db));
-  const extra = operationsRoutes(operations(operationsRepository(db)), jwt, historyPdf);
+  const service = roomBookings(reservationRepository(db),catalog);
+  const extra = operationsRoutes(operations(operationsRepository(db),catalog), jwt, historyPdf);
+  const paymentState = reservation => {
+    const payment=db.prepare("SELECT status FROM payments WHERE kind='habitacion' AND booking_id=?").get(reservation.id);
+    return {...reservation,roomName:catalog.room(reservation.room)?.name||reservation.roomName,bookingState:reservation.status==='cancelada'?'cancelada':payment?.status==='cobrada'?'confirmada':'pendiente_pago'};
+  };
 
   async function route(req, res, path) {
     const { method } = req;
+    // Unpaid holds release inventory after 48h, unless a receipt awaits review.
+    for(const [table,kind] of [['reservations','habitacion'],['experience_bookings','experiencia']]){
+      db.prepare(`UPDATE ${table} SET status='cancelada' WHERE status='confirmada'
+        AND EXISTS(SELECT 1 FROM payments p WHERE p.kind=? AND p.booking_id=${table}.id AND p.status='pendiente'
+        AND NOT EXISTS(SELECT 1 FROM pms_proofs q WHERE q.payment_id=p.id AND q.status='pendiente'))
+        AND datetime(created_at)<datetime('now','-48 hours')`).run(kind);
+    }
+    if(path==='/pms/resort-catalog'&&method==='GET'){
+      json(res,200,{success:true,data:catalog.manage(jwt.identity(req))});return true;
+    }
+    if(path==='/pms/resort-catalog'&&method==='PUT'){
+      const input=await body(req);json(res,200,{success:true,data:catalog.save(jwt.identity(req),input.kind,input)});return true;
+    }
     if (method === 'GET' && path === '/rooms') {
       json(res, 200, { success: true, rooms: service.catalog() });
       return true;
@@ -37,13 +56,13 @@ export function reservationsService({ path, secret }) {
       return true;
     }
     if (method === 'GET' && path === '/reservations') {
-      json(res, 200, { success: true, reservations: service.list(jwt.owner(req)) });
+      json(res, 200, { success: true, reservations: service.list(jwt.owner(req)).map(paymentState) });
       return true;
     }
     if (method === 'POST' && path === '/reservations') {
       const owner = jwt.owner(req);
       const result = service.create(owner, await body(req), req.headers['idempotency-key']);
-      json(res, result.replay ? 200 : 201, { success: true, reservation: result.reservation });
+      json(res, result.replay ? 200 : 201, { success: true, reservation: paymentState(result.reservation) });
       return true;
     }
     if (method === 'DELETE' && /^\/reservations\/\d+$/.test(path)) {

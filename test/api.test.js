@@ -109,7 +109,8 @@ test('reservas simultáneas, reintentos, cancelación y aislamiento de usuarios'
   assert.equal(retry.status, 200);
   assert.equal(retry.data.reservation.id, id);
   assert.equal(retry.data.reservation.total, 240);
-  assert.equal((await book(first.booking, { ...data, guests: 4 }, alice.token, 'request-00' + index)).status, 409);
+  assert.equal((await book(first.booking, { ...data, guests: 4 }, alice.token, 'request-00' + index)).status, 400);
+  assert.equal((await book(first.booking, { ...data, guests: 1 }, alice.token, 'request-00' + index)).status, 409);
   const available = await call(first.booking, '/api/booking/availability/estandar');
   assert.deepEqual(available.data.fullDates, [date(2), date(3)]);
   const url = '/api/booking/reservations/' + id;
@@ -122,6 +123,25 @@ test('reservas simultáneas, reintentos, cancelación y aislamiento de usuarios'
   const after = await call(second.booking, '/api/booking/reservations', { token: alice.token });
   assert.equal(after.data.reservations.length, 3);
   assert.equal(after.data.reservations.find(row => row.id === id).status, 'cancelada');
+});
+
+test('catálogo configurable y confirmación solo después del cobro',async t=>{
+  const {open,close}=setup(t);let first=open();
+  await register(first.auth,'admin@demo.example');const guest=(await register(first.auth,'guest@demo.example')).data;
+  close(first.auth);close(first.booking);first=open({adminIds:'1'});
+  const admin=(await call(first.auth,'/api/auth/login',{method:'POST',data:makeCredentials('admin@demo.example')})).data;
+  const catalog='/api/booking/pms/resort-catalog';
+  assert.equal((await call(first.booking,catalog,{token:guest.token})).status,403);
+  const offers=(await call(first.booking,catalog,{token:admin.token})).data.data;
+  assert.ok(offers.experiences.length>5);
+  const category=offers.rooms.find(r=>r.id==='estandar');
+  assert.equal((await call(first.booking,catalog,{method:'PUT',token:admin.token,data:{...category,kind:'room',price:210}})).status,200);
+  const req=await book(first.booking,standard(),guest.token);
+  assert.equal(req.data.reservation.total,420);
+  assert.equal(req.data.reservation.bookingState,'pendiente_pago');
+  const payment=(await call(first.booking,'/api/booking/payments',{token:guest.token})).data.payments[0];
+  assert.equal((await call(first.booking,'/api/booking/operations/payments/'+payment.id,{method:'POST',token:admin.token,data:{action:'cobrar',reference:'VERIF-EXAMPLE-1'}})).status,200);
+  assert.equal((await call(first.booking,'/api/booking/reservations',{token:guest.token})).data.reservations[0].bookingState,'confirmada');
 });
 
 test('migración conserva IDs, hash, perfil y reservas existentes', async t => {

@@ -26,10 +26,11 @@ function useQuery(endpoint, field, revision = 0) {
   return state?.key === key ? state : {};
 }
 
-function BookingForm({ room, start, session }) {
+function BookingForm({ room, start, end, guests, session }) {
   const first = today();
   const initial = /^\d{4}-\d{2}-\d{2}$/.test(start || '') && start >= first && !Number.isNaN(dateOf(start).getTime()) && dateISO(dateOf(start)) === start ? start : first;
-  const [draft, setDraft] = useState({ checkIn: initial, checkOut: plusDays(initial, 1), guests: '2', paymentMethod: 'qr' });
+  const checkout=/^\d{4}-\d{2}-\d{2}$/.test(end||'')&&end>initial&&end<=plusDays(initial,30)&&!Number.isNaN(dateOf(end).getTime())?end:plusDays(initial,1);
+  const [draft, setDraft] = useState({ checkIn: initial, checkOut: checkout, guests: String(Math.min(room.capacity||6,Math.max(1,Number(guests)||2))), paymentMethod: 'qr' });
   const [notice, setNotice] = useState('');
   const [saved, setSaved] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -78,11 +79,11 @@ function BookingForm({ room, start, session }) {
         <label>Salida<input type="date" name="checkOut" value={draft.checkOut} min={draft.checkIn ? plusDays(draft.checkIn, 1) : first}
           max={draft.checkIn ? plusDays(draft.checkIn, 30) : undefined} required onChange={change} /></label>
         <label>Huéspedes<select name="guests" value={draft.guests} onChange={change}>
-          {[1, 2, 3, 4, 5, 6].map(count => <option key={count} value={count}>{count}</option>)}</select></label>
+          {Array.from({length:room.capacity||6},(_,i)=>i+1).map(count => <option key={count} value={count}>{count}</option>)}</select></label>
         <label>Forma de pago<select name="paymentMethod" value={draft.paymentMethod} onChange={change}>
           <option value="qr">QR en recepción</option><option value="tarjeta">Tarjeta en recepción</option><option value="efectivo">Efectivo en recepción</option></select></label>
       </fieldset>
-      <p className="muted">Pagas en recepción. El personal registrará el cobro con tu comprobante.</p>
+      <p className="muted">El cupo se mantiene durante 48 horas mientras pagas. La confirmación se emite al verificar el pago completo del alojamiento; un comprobante en revisión conserva la solicitud.</p>
       {nights > 0 && <div className="total"><span>{nights} {nights === 1 ? 'noche' : 'noches'} × {price(room.price)}</span><strong>{price(nights * room.price)}</strong></div>}
       {availability.error ? <p className="notice error" role="alert">{availability.error} <button type="button" className="text-button" onClick={() => reload(revision + 1)}>Reintentar</button></p> :
         !availability.data ? <p role="status">Buscando disponibilidad…</p> :
@@ -90,12 +91,12 @@ function BookingForm({ room, start, session }) {
             !saved && <p className="muted">Disponibilidad consultada para esta habitación.</p>}
       {notice && <p className="notice error" role="alert">{notice}</p>}
       {saved ? <div className="notice" role="status">
-        <strong>Reserva {saved.status} · {saved.code}</strong>
+        <strong>Solicitud recibida · pendiente de pago</strong>
         <p>{dateLabel(saved.checkIn)} – {dateLabel(saved.checkOut)} · {price(saved.total)}</p>
-        <a className="text-link" href="#/cuenta">Ir a mis reservas ↗</a>
+        <a className="button" href="#/cuenta?seccion=pagos">Continuar al pago →</a>
         <button type="button" className="text-button new-booking" onClick={() => { setSaved(null); idempotency.current = null; reload(revision + 1); }}>Hacer otra reserva</button>
       </div> : session.user && <button className="button" disabled={busy || !availability.data || conflict || nights < 1}>
-        {busy ? 'Confirmando…' : 'Confirmar reserva'}</button>}
+        {busy ? 'Procesando…' : 'Solicitar alojamiento'}</button>}
     </form>
     {!session.user && <aside>
       <h3>Accede para confirmar tu reserva</h3>
@@ -107,11 +108,21 @@ function BookingForm({ room, start, session }) {
   </div>;
 }
 
-export function Rooms({ session, start }) {
+export function Rooms({ session, start, end, guests }) {
   const [selection, setSelection] = useState(null);
   const [revision, reload] = useState(0);
   const formHeading = useRef(null);
   const catalog = useQuery(booking + '/rooms', 'rooms', revision);
+  const [availabilityMap,setAvailabilityMap]=useState(null);
+  const hasDates=Boolean(start&&end&&start<end);
+  useEffect(()=>{
+    if(!catalog.data||!hasDates)return;
+    const controller=new AbortController();
+    setAvailabilityMap(null);
+    Promise.all(catalog.data.map(async room=>[room.id,(await request(booking+'/availability/'+room.id,{signal:controller.signal})).fullDates])).then(values=>{if(!controller.signal.aborted)setAvailabilityMap(Object.fromEntries(values))}).catch(()=>{if(!controller.signal.aborted)setAvailabilityMap({})});
+    return()=>controller.abort();
+  },[catalog.data,start,end,hasDates]);
+  const visibleRooms=catalog.data?.filter(room=>(!guests||!room.capacity||room.capacity>=Number(guests))&&(!hasDates||!availabilityMap?.[room.id]?.some(date=>start<=date&&date<end)))||[];
   const selected = catalog.data?.find(room => room.id === selection);
   function select(room) {
     setSelection(room);
@@ -121,18 +132,20 @@ export function Rooms({ session, start }) {
   return <section className="wrap page">
     <div className="page-heading"><p className="overline">ESTADÍA EN VIACHA</p><h1>Habitaciones y reservas</h1>
       <p>Elige una suite y consulta la disponibilidad de tus fechas.</p></div>
+    {hasDates&&<section className="panel"><strong>Tu búsqueda: {start} — {end} · {guests||2} huéspedes</strong><p>{availabilityMap?'Resultados según el cupo consultado.':'Consultando disponibilidad…'}</p><a className="text-link" href="#/">Cambiar fechas y huéspedes →</a></section>}
     {catalog.error ? <p className="notice error" role="alert">{catalog.error} <button className="text-button" onClick={() => reload(revision + 1)}>Reintentar</button></p> :
       !catalog.data ? <p role="status">Cargando habitaciones…</p> : <div className="cards">
-        {catalog.data.map(room => <article className={'card room-card' + (selection === room.id ? ' selected' : '')} key={room.id}>
+        {!visibleRooms.length&&<p>No encontramos habitaciones para estos filtros. Prueba otras fechas o menos huéspedes.</p>}
+        {visibleRooms.map(room => <article className={'card room-card' + (selection === room.id ? ' selected' : '')} key={room.id}>
           <img src={room.image} alt={['familiar', 'terraza'].includes(room.id) ? 'Imagen referencial de alojamiento' : room.name} />
-          <div className="card-body"><h2>{room.name}</h2><p>{roomCopy[room.id]}</p>
+          <div className="card-body"><p className="item-category">ALOJAMIENTO · hasta {room.capacity||6} huéspedes</p><h2>{room.name}</h2><p>{roomCopy[room.id]}</p>
             <div className="room-price"><strong>{price(room.price)}</strong><span> / noche</span></div>
             <button type="button" className="button secondary" onClick={() => select(room.id)} aria-pressed={selection === room.id}>Elegir habitación <span aria-hidden="true">↗</span></button>
           </div></article>)}
       </div>}
     {selected && <section className="booking-section">
       <h2 tabIndex={-1} ref={formHeading}>Completa tu reserva</h2>
-      <BookingForm key={selected.id + ':' + start} room={selected} start={start} session={session} />
+      <BookingForm key={selected.id + ':' + start} room={selected} start={start} end={end} guests={guests} session={session} />
     </section>}
   </section>;
 }
@@ -178,3 +191,4 @@ export function Calendar() {
     </div>
   </section>;
 }
+

@@ -54,17 +54,20 @@ export function pms(db) {
       return {rooms,tasks,active,catalog:all('SELECT * FROM pms_catalog ORDER BY category,name'),
         reservations:all(`SELECT r.*,s.id AS stay_id,s.status AS stay_status FROM reservations r LEFT JOIN pms_stays s ON s.reservation_id=r.id
           WHERE r.check_out>=? OR s.status='alojado' ORDER BY r.check_in LIMIT 500`,today()),
-        proofs:all(`SELECT q.*,p.amount,p.kind,p.booking_id FROM pms_proofs q JOIN payments p ON p.id=q.payment_id WHERE q.status='pendiente' ORDER BY q.id`)};
+        proofs:all(`SELECT q.*,p.amount,p.kind,p.booking_id FROM pms_proofs q JOIN payments p ON p.id=q.payment_id WHERE q.status='pendiente' ORDER BY q.id`),
+        stayProofs:all("SELECT * FROM pms_stay_proofs WHERE status='pendiente' ORDER BY id")};
     },
     mine(actor) {
       return {stays:all('SELECT s.id FROM pms_stays s JOIN reservations r ON r.id=s.reservation_id WHERE r.user_id=? ORDER BY s.id DESC',actor.id).map(s=>folio(s.id)),
-        proofs:all('SELECT id,payment_id,reference,status,created_at FROM pms_proofs WHERE user_id=? ORDER BY id DESC',actor.id)};
+        proofs:all('SELECT id,payment_id,reference,status,created_at FROM pms_proofs WHERE user_id=? ORDER BY id DESC',actor.id),
+        stayProofs:all('SELECT * FROM pms_stay_proofs WHERE user_id=? ORDER BY id DESC',actor.id)};
     },
     checkIn(actor,input) {
       requireRole(actor,reception);
       return transaction(db,()=>{
         const r=get('SELECT * FROM reservations WHERE id=?',number(input.reservationId,1,Number.MAX_SAFE_INTEGER));
         if(!r||r.status!=='confirmada'||r.check_in>today()||r.check_out<=today()) fail(409,'La reserva no se puede registrar como llegada hoy.');
+        if(get("SELECT status FROM payments WHERE kind='habitacion' AND booking_id=?",r.id)?.status!=='cobrada')fail(409,'Primero verifica el pago del alojamiento.');
         if(get('SELECT id FROM pms_stays WHERE reservation_id=?',r.id)) fail(409,'La reserva ya tiene una estancia.');
         const room=get("SELECT * FROM pms_rooms WHERE id=? AND condition='lista' AND category=?",number(input.roomId,1,Number.MAX_SAFE_INTEGER),r.room);
         if(!room||get("SELECT id FROM pms_stays WHERE room_id=? AND status='alojado'",room.id)) fail(409,'Habitación no disponible para esta categoría.');
@@ -120,6 +123,31 @@ export function pms(db) {
         if(get('SELECT id FROM pms_proofs WHERE reference=? OR (payment_id=? AND status=\'pendiente\')',reference,payment.id)||
            get('SELECT id FROM payment_events WHERE lower(reference)=lower(?)',reference)) fail(409,'Ya existe un comprobante para revisar.');
         return get('INSERT INTO pms_proofs(payment_id,user_id,reference) VALUES(?,?,?) RETURNING id,status',payment.id,actor.id,reference);
+      });
+    },
+    stayProof(actor,id,input){
+      return transaction(db,()=>{
+        const data=folio(id);
+        if(data.stay.user_id!==actor.id)fail(404,'Estancia no encontrada.');
+        if(data.stay.status!=='alojado'||data.balance<=0)fail(409,'No hay saldo pendiente.');
+        const reference=text(input.reference,60);
+        if(get('SELECT id FROM pms_stay_proofs WHERE reference=? OR (stay_id=? AND status=\'pendiente\')',reference,id)||get('SELECT id FROM pms_settlements WHERE reference=?',reference)||get('SELECT id FROM payment_events WHERE lower(reference)=lower(?)',reference)||get('SELECT id FROM pms_proofs WHERE reference=?',reference))fail(409,'Ya existe un comprobante o referencia registrada.');
+        return get('INSERT INTO pms_stay_proofs(stay_id,user_id,amount_cents,reference) VALUES(?,?,?,?) RETURNING *',id,actor.id,data.balance,reference);
+      });
+    },
+    reviewStayProof(actor,id,input){
+      requireRole(actor,finance);
+      if(typeof input.approve!=='boolean')fail(400,'Indica aprobación o rechazo.');
+      return transaction(db,()=>{
+        const proof=get("SELECT * FROM pms_stay_proofs WHERE id=? AND status='pendiente'",id);
+        if(!proof)fail(404,'Comprobante no pendiente.');
+        if(input.approve){
+          const data=folio(proof.stay_id);
+          if(data.stay.status!=='alojado'||proof.amount_cents>data.balance||get('SELECT id FROM pms_settlements WHERE reference=?',proof.reference)||get('SELECT id FROM payment_events WHERE lower(reference)=lower(?)',proof.reference))fail(409,'El saldo cambió o la referencia ya se utilizó.');
+          run("INSERT INTO pms_settlements(stay_id,amount_cents,method,reference,actor_id) VALUES(?,?,'qr',?,?)",proof.stay_id,proof.amount_cents,proof.reference,actor.id);
+        }
+        run('UPDATE pms_stay_proofs SET status=?,reviewed_by=? WHERE id=?',input.approve?'aceptado':'rechazado',actor.id,id);
+        audit(actor,'stay_proof_review',id);return {id,status:input.approve?'aceptado':'rechazado'};
       });
     },
     review(actor,id,input) {

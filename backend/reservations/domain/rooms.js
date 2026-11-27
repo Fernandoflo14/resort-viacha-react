@@ -34,16 +34,17 @@ export function* stayDates(start, end) {
   for (let date = time(start); date < limit; date += day) yield dateText(date);
 }
 
-export function booking(data, requestKey) {
+export function booking(data, requestKey, resolve = roomFor) {
   const { room, checkIn, checkOut, guests, paymentMethod } = data;
-  const category = roomFor(room);
-  if (!category) throw new ApplicationError(400, 'Selecciona una habitación válida.');
+  const category = resolve(room);
+  if (!category || category.enabled === false) throw new ApplicationError(400, 'Selecciona una habitación válida.');
   if (!Number.isFinite(time(checkIn)) || !Number.isFinite(time(checkOut))) {
     throw new ApplicationError(400, 'Elige fechas válidas.');
   }
   const nights = (time(checkOut) - time(checkIn)) / day;
   if (nights < 1 || nights > maxNights) throw new ApplicationError(400, 'La estadía debe ser de 1 a 30 noches.');
   if (!Number.isInteger(guests) || guests < 1 || guests > maxGuests) throw new ApplicationError(400, 'Indica entre 1 y 6 huéspedes.');
+  if (category.capacity && guests > category.capacity) throw new ApplicationError(400, 'La capacidad de esta suite no permite ese número de huéspedes.');
   if (!paymentMethods.includes(paymentMethod)) throw new ApplicationError(400, 'Selecciona un método de pago.');
   if (requestKey !== undefined && !/^[\w-]{8,100}$/.test(requestKey)) throw new ApplicationError(400, 'La clave de la solicitud no es válida.');
   return { room, checkIn, checkOut, guests, paymentMethod, nights, total: nights * category.price, stock: category.stock, requestKey };
@@ -56,3 +57,4 @@ export function formatReservation(row) {
     paymentMethod: row.payment_method, status: row.status, createdAt: row.created_at,
   };
 }
+

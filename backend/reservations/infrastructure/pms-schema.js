@@ -51,6 +51,13 @@ export function installPms(db) {
         id INTEGER PRIMARY KEY CHECK(id=1), beneficiary TEXT NOT NULL DEFAULT '',
         instructions TEXT NOT NULL DEFAULT '', qr_image TEXT NOT NULL DEFAULT ''
       );
+      CREATE TABLE IF NOT EXISTS pms_stay_proofs(
+        id INTEGER PRIMARY KEY, stay_id INTEGER NOT NULL REFERENCES pms_stays(id), user_id INTEGER NOT NULL,
+        amount_cents INTEGER NOT NULL CHECK(amount_cents>0), reference TEXT NOT NULL COLLATE NOCASE UNIQUE,
+        status TEXT NOT NULL DEFAULT 'pendiente' CHECK(status IN('pendiente','aceptado','rechazado')),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, reviewed_by INTEGER
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS pms_stay_proof_pending ON pms_stay_proofs(stay_id) WHERE status='pendiente';
       INSERT OR IGNORE INTO pms_payment_settings(id) VALUES(1);
     `);
     const seed = db.prepare('INSERT OR IGNORE INTO pms_rooms(number,category) VALUES(?,?)');
