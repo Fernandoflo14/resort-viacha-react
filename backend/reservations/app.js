@@ -11,12 +11,17 @@ import { expandRooms } from './infrastructure/room-migration.js';
 import { installOperations } from './infrastructure/operations-schema.js';
 import { historyPdf } from './infrastructure/report-pdf.js';
 import { operationsRoutes } from './presentation/operations-routes.js';
+import { installPms } from './infrastructure/pms-schema.js';
+import { pms } from './application/pms.js';
+import { pmsRoutes } from './presentation/pms-routes.js';
 
 export function reservationsService({ path, secret }) {
   const jwt = tokens(secret);
   const db = openDatabase(path, reservationsSchema);
   expandRooms(db);
   installOperations(db);
+  installPms(db);
+  const pmsApi = pmsRoutes(pms(db), jwt);
   const service = roomBookings(reservationRepository(db));
   const extra = operationsRoutes(operations(operationsRepository(db)), jwt, historyPdf);
 
@@ -44,11 +49,17 @@ export function reservationsService({ path, secret }) {
     if (method === 'DELETE' && /^\/reservations\/\d+$/.test(path)) {
       const owner = jwt.owner(req);
       const id = Number(path.split('/').pop());
+      if (db.prepare("SELECT id FROM pms_stays WHERE reservation_id=?").get(id)) {
+        const { ApplicationError } = await import('../shared/application-error.js');
+        throw new ApplicationError(409, 'La reserva ya tiene una estancia. Consulta a recepci�n.');
+      }
       service.cancel(id, owner);
       json(res, 200, { success: true, message: 'Reserva cancelada.' });
       return true;
     }
+    if (await pmsApi(req, res, path)) return true;
     return extra(req, res, path);
   }
   return api({ db, route, spec, prefix: '/api/booking' });
 }
+

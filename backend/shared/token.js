@@ -20,7 +20,7 @@ export function tokens(secret) {
     },
     identity(req) {
       const match = /^Bearer ([\w-]+)\.([\w-]+)\.([\w-]+)$/i.exec(req.headers.authorization || '');
-      const denied = new HttpError(401, 'Inicia sesión o vuelve a ingresar si tu sesión expiró.');
+      const denied = new HttpError(401, 'Inicia sesi�n o vuelve a ingresar si tu sesi�n expir�.');
       if (!match || match[1] !== header || match[2].length > 1024 || match[3].length !== 43) throw denied;
       const signature = Buffer.from(match[3], 'base64url');
       if (signature.length !== 32 || !timingSafeEqual(signature, sign(match[1] + '.' + match[2]))) throw denied;
@@ -34,7 +34,7 @@ export function tokens(secret) {
       if (!Number.isSafeInteger(id) || id < 1 || claims.sub !== String(id) ||
           claims.iss !== 'resort-viacha-auth' || claims.aud !== 'resort-viacha' ||
           !Number.isSafeInteger(claims.exp) || claims.exp <= now()) throw denied;
-      const role = ['admin', 'staff'].includes(claims.role) ? claims.role : 'guest';
+      const role = ['admin', 'staff', 'manager', 'housekeeping', 'maintenance', 'services', 'finance'].includes(claims.role) ? claims.role : 'guest';
       return { id, role };
     },
     owner(req) {
@@ -42,3 +42,4 @@ export function tokens(secret) {
     },
   };
 }
+

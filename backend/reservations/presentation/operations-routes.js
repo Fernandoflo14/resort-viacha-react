@@ -2,7 +2,7 @@ import { body, HttpError, json } from '../../shared/http.js';
 
 function requireRole(jwt, req, roles) {
   const { id, role } = jwt.identity(req);
-  if (!roles.includes(role)) throw new HttpError(403, 'Tu cuenta no tiene acceso a esta operación.');
+  if (!roles.includes(role)) throw new HttpError(403, 'Tu cuenta no tiene acceso a esta operaci�n.');
   return id;
 }
 
@@ -28,7 +28,7 @@ export function operationsRoutes(service, jwt, renderReport) {
     } else if (method === 'GET' && path === '/payments') {
       json(res, 200, { success: true, payments: service.payments(jwt.owner(req)) });
     } else if (method === 'GET' && ['/operations/history','/operations/history.pdf'].includes(path)) {
-      requireRole(jwt, req, path.endsWith('.pdf') ? ['admin'] : ['admin', 'staff']);
+      requireRole(jwt, req, path.endsWith('.pdf') ? ['admin','manager','finance'] : ['admin', 'staff','manager','finance']);
       const result = service.history(query.get('from'), query.get('to'));
       if (path.endsWith('.pdf')) {
         res.writeHead(200, {
@@ -40,13 +40,15 @@ export function operationsRoutes(service, jwt, renderReport) {
         json(res, 200, { success: true, ...result });
       }
     } else if (/^\/operations\/payments\/\d+$/.test(path) && ['GET','POST'].includes(method)) {
-      const actor = requireRole(jwt, req, ['admin', 'staff']);
+      const actor = requireRole(jwt, req, ['admin', 'staff','manager','finance']);
       const id = Number(path.split('/').pop());
-      if (!Number.isSafeInteger(id) || id <= 0) throw new HttpError(404, 'Transacción no encontrada.');
+      if (!Number.isSafeInteger(id) || id <= 0) throw new HttpError(404, 'Transacci�n no encontrada.');
       if (method === 'GET') {
         json(res, 200, { success: true, events: service.events(id) });
       } else {
-        json(res, 200, { success: true, payment: service.settle(id, actor, await body(req)) });
+        const input = await body(req);
+        if(input.action==='reembolsar') requireRole(jwt, req, ['admin','manager','finance']);
+        json(res, 200, { success: true, payment: service.settle(id, actor, input) });
       }
     } else {
       return false;
@@ -54,3 +56,4 @@ export function operationsRoutes(service, jwt, renderReport) {
     return true;
   };
 }
+

@@ -65,7 +65,7 @@ const register = (auth, email) => call(auth, '/api/auth/register', { method: 'PO
 const standard = () => ({ room: 'estandar', checkIn: date(2), checkOut: date(4), guests: 2, paymentMethod: 'efectivo' });
 const book = (server, data, token, key) => call(server, '/api/booking/reservations', { method: 'POST', data, token, key });
 
-test('registro concurrente, validación, autenticación y persistencia de perfil', async t => {
+test('registro concurrente, validaci�n, autenticaci�n y persistencia de perfil', async t => {
   const { open, close } = setup(t);
   const first = open();
   const registering = await Promise.all(Array.from({ length: 4 }, () => register(first.auth, ' Invitado@ejemplo.com ')));
@@ -92,7 +92,7 @@ test('registro concurrente, validación, autenticación y persistencia de perfil
   assert.equal(login.data.user.profileImage, profileImage);
 });
 
-test('reservas simultáneas, reintentos, cancelación y aislamiento de usuarios', async t => {
+test('reservas simult�neas, reintentos, cancelaci�n y aislamiento de usuarios', async t => {
   const { open, close } = setup(t);
   const first = open();
   const [{ data: alice }, { data: bob }] = await Promise.all([register(first.auth, 'ana@ejemplo.com'), register(first.auth, 'bob@ejemplo.com')]);
@@ -124,7 +124,7 @@ test('reservas simultáneas, reintentos, cancelación y aislamiento de usuarios'
   assert.equal(after.data.reservations.find(row => row.id === id).status, 'cancelada');
 });
 
-test('migración conserva IDs, hash, perfil y reservas existentes', async t => {
+test('migraci�n conserva IDs, hash, perfil y reservas existentes', async t => {
   const { directory, paths, open } = setup(t);
   const legacyPath = join(directory, 'resort.sqlite');
   const legacy = new DatabaseSync(legacyPath);
@@ -137,7 +137,7 @@ test('migración conserva IDs, hash, perfil y reservas existentes', async t => {
   legacy.prepare('INSERT INTO reservations VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(41, 37, 'estandar', date(2), date(3), 2, 1, 120, 'qr', 'confirmada', '2025-01-01');
   legacy.close();
   assert.deepEqual(migrate(legacyPath, paths.auth, paths.booking), { usuarios: 1, reservas: 1 });
-  assert.throws(() => migrate(legacyPath, paths.auth, paths.booking), /vacías/);
+  assert.throws(() => migrate(legacyPath, paths.auth, paths.booking), /vac�as/);
   const { auth, booking } = open();
   const login = await call(auth, '/login', { method: 'POST', data: { email: 'anterior@ejemplo.com', password: 'legacy-password' } });
   assert.equal(login.data.user.id, 37);
@@ -148,7 +148,7 @@ test('migración conserva IDs, hash, perfil y reservas existentes', async t => {
   assert.equal(next.data.user.id, 38);
 });
 
-test('una cuenta con hash bcrypt del proyecto anterior puede volver a iniciar sesión', async t => {
+test('una cuenta con hash bcrypt del proyecto anterior puede volver a iniciar sesi�n', async t => {
   let bcrypt;
   try {
     bcrypt = (await import('bcryptjs')).default;
@@ -201,16 +201,16 @@ test('el frontend devuelve el HTML de React en inicio y entradas antiguas', asyn
 });
 
 
-test('la comprobación pública falla si faltan los servicios de backend', async () => {
+test('la comprobaci�n p�blica falla si faltan los servicios de backend', async () => {
   const frontend = frontendServer({ auth: 'http://127.0.0.1:1', reservations: 'http://127.0.0.1:1' });
   const health = await call(frontend, '/health');
   assert.equal(health.status, 503);
   assert.deepEqual(health.data, { status: 'unavailable' });
 });
 
-test('experiencias, control de cupo, roles, cobro, cancelación y reembolso', async t => {
+test('experiencias, control de cupo, roles, cobro, cancelaci�n y reembolso', async t => {
   const { open, close } = setup(t);
-  const first = open({ adminIds: '1', staffIds: '2' });
+  let first = open();
   const base = '/api/booking';
   const signIn = email => call(first.auth, '/api/auth/login', { method: 'POST', data: makeCredentials(email) });
   const registerAs = async email => {
@@ -223,6 +223,9 @@ test('experiencias, control de cupo, roles, cobro, cancelación y reembolso', as
   await registerAs('admin@example.test');
   await registerAs('staff@example.test');
   const guest = await registerAs('guest@example.test');
+  close(first.auth);
+  close(first.booking);
+  first = open({ adminIds: '1', staffIds: '2' });
   const admin = (await signIn('admin@example.test')).data;
   const staff = (await signIn('staff@example.test')).data;
   assert.equal(admin.user.role, 'admin');
@@ -309,3 +312,4 @@ test('actualiza una base de reservas v2 conservando historial e idempotencia', a
   const result = await call(second.booking, '/api/booking/payments', { token: guest.token });
   assert.deepEqual(result.data.payments.map(row => row.status), ['pendiente', 'historica']);
 });
+
